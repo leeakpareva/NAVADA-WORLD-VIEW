@@ -127,6 +127,8 @@ export class SignalModal {
       'velocity_spike': '🔥 Velocity Spike',
       'convergence': '◉ Convergence',
       'triangulation': '△ Triangulation',
+      'flow_drop': '🛢️ Flow Drop',
+      'flow_price_divergence': '📈 Flow/Price Divergence',
     };
 
     const html = this.currentSignals.map(signal => `

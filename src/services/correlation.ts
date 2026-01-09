@@ -1,7 +1,15 @@
 import type { ClusteredEvent, PredictionMarket, MarketData } from '@/types';
 import { getSourceType, type SourceType } from '@/config/feeds';
 
-export type SignalType = 'prediction_leads_news' | 'news_leads_markets' | 'silent_divergence' | 'velocity_spike' | 'convergence' | 'triangulation';
+export type SignalType =
+  | 'prediction_leads_news'
+  | 'news_leads_markets'
+  | 'silent_divergence'
+  | 'velocity_spike'
+  | 'convergence'
+  | 'triangulation'
+  | 'flow_drop'
+  | 'flow_price_divergence';
 
 export interface CorrelationSignal {
   id: string;
@@ -28,6 +36,15 @@ interface StreamSnapshot {
 const PREDICTION_SHIFT_THRESHOLD = 5;
 const MARKET_MOVE_THRESHOLD = 2;
 const NEWS_VELOCITY_THRESHOLD = 3;
+const FLOW_PRICE_THRESHOLD = 1.5;
+const ENERGY_COMMODITY_SYMBOLS = new Set(['CL=F', 'NG=F']);
+
+const PIPELINE_KEYWORDS = ['pipeline', 'pipelines', 'line', 'terminal'];
+const FLOW_DROP_KEYWORDS = [
+  'flow', 'throughput', 'capacity', 'outage', 'leak', 'rupture', 'shutdown',
+  'maintenance', 'curtailment', 'force majeure', 'halt', 'halted', 'reduced',
+  'reduction', 'drop', 'offline', 'suspend', 'suspended', 'stoppage',
+];
 
 let previousSnapshot: StreamSnapshot | null = null;
 const signalHistory: CorrelationSignal[] = [];
@@ -99,6 +116,47 @@ function findRelatedTopics(prediction: string): string[] {
   }
 
   return [...new Set(related)];
+}
+
+function includesKeyword(text: string, keywords: string[]): boolean {
+  return keywords.some(keyword => text.includes(keyword));
+}
+
+function detectPipelineFlowDrops(events: ClusteredEvent[]): CorrelationSignal[] {
+  const signals: CorrelationSignal[] = [];
+
+  for (const event of events) {
+    const titles = [
+      event.primaryTitle,
+      ...(event.allItems?.map(item => item.title) ?? []),
+    ]
+      .map(title => title.toLowerCase())
+      .filter(Boolean);
+
+    const hasPipeline = titles.some(title => includesKeyword(title, PIPELINE_KEYWORDS));
+    const hasFlowDrop = titles.some(title => includesKeyword(title, FLOW_DROP_KEYWORDS));
+
+    if (hasPipeline && hasFlowDrop) {
+      const dedupeKey = generateDedupeKey('flow_drop', event.id, event.sourceCount);
+      if (!isRecentDuplicate(dedupeKey)) {
+        markSignalSeen(dedupeKey);
+        signals.push({
+          id: generateSignalId(),
+          type: 'flow_drop',
+          title: 'Pipeline Flow Drop',
+          description: `"${event.primaryTitle.slice(0, 70)}..." indicates reduced flow or disruption`,
+          confidence: Math.min(0.9, 0.4 + event.sourceCount / 10),
+          timestamp: new Date(),
+          data: {
+            newsVelocity: event.sourceCount,
+            relatedTopics: ['pipeline', 'flow'],
+          },
+        });
+      }
+    }
+  }
+
+  return signals;
 }
 
 // Convergence: Multiple diverse source types reporting same topic in short window
@@ -212,6 +270,8 @@ export function analyzeCorrelations(
   const now = Date.now();
 
   const newsTopics = extractTopics(events);
+  const pipelineFlowSignals = detectPipelineFlowDrops(events);
+  const pipelineFlowMentions = pipelineFlowSignals.length;
 
   const currentSnapshot: StreamSnapshot = {
     newsVelocity: newsTopics,
@@ -306,11 +366,42 @@ export function analyzeCorrelations(
     }
   }
 
+  // Detect flow/price divergence for energy commodities
+  for (const market of markets) {
+    if (!ENERGY_COMMODITY_SYMBOLS.has(market.symbol)) continue;
+
+    const change = market.change ?? 0;
+    if (change >= FLOW_PRICE_THRESHOLD) {
+      const relatedNews = Array.from(newsTopics.entries())
+        .filter(([k]) => market.name.toLowerCase().includes(k) || k.includes(market.symbol.toLowerCase()))
+        .reduce((sum, [, v]) => sum + v, 0);
+
+      const dedupeKey = generateDedupeKey('flow_price_divergence', market.symbol, change);
+      if (relatedNews < 2 && pipelineFlowMentions === 0 && !isRecentDuplicate(dedupeKey)) {
+        markSignalSeen(dedupeKey);
+        signals.push({
+          id: generateSignalId(),
+          type: 'flow_price_divergence',
+          title: 'Flow/Price Divergence',
+          description: `${market.name} up ${change.toFixed(2)}% without pipeline flow news`,
+          confidence: Math.min(0.85, 0.4 + change / 8),
+          timestamp: new Date(),
+          data: {
+            marketChange: change,
+            newsVelocity: relatedNews,
+            relatedTopics: ['pipeline', market.display],
+          },
+        });
+      }
+    }
+  }
+
   previousSnapshot = currentSnapshot;
 
   // Add convergence and triangulation signals
   signals.push(...detectConvergence(events));
   signals.push(...detectTriangulation(events));
+  signals.push(...pipelineFlowSignals);
 
   // Dedupe by type to avoid spam
   const uniqueSignals = signals.filter((sig, idx) =>

@@ -617,6 +617,14 @@ body {
   border-left-color: #ff6b00;
 }
 
+.signal-item.flow_drop {
+  border-left-color: #6f42c1;
+}
+
+.signal-item.flow_price_divergence {
+  border-left-color: #2ec4b6;
+}
+
 .signal-type {
   font-size: 10px;
   text-transform: uppercase;
