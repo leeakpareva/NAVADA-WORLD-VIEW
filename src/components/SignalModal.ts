@@ -1,5 +1,5 @@
 import type { CorrelationSignal } from '@/services/correlation';
-import { escapeHtml } from '@/utils';
+import { escapeHtml } from '@/utils/sanitize';
 
 export class SignalModal {
   private element: HTMLElement;

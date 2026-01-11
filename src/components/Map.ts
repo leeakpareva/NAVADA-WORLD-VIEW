@@ -1,5 +1,6 @@
 import * as d3 from 'd3';
 import * as topojson from 'topojson-client';
+import { escapeHtml } from '@/utils/sanitize';
 import type { Topology, GeometryCollection } from 'topojson-specification';
 import type { MapLayers, Hotspot, NewsItem, Earthquake, InternetOutage, RelatedAsset, AssetType, AisDisruptionEvent, AisDensityZone, CableAdvisory, RepairShip, SocialUnrestEvent, AirportDelayAlert, MilitaryFlight, MilitaryVessel, MilitaryFlightCluster, MilitaryVesselCluster } from '@/types';
 import type { WeatherAlert } from '@/services/weather';
@@ -1005,13 +1006,13 @@ export class MapComponent {
           : '';
 
         const subtextHtml = spot.subtext
-          ? `<div class="hotspot-subtext">${spot.subtext}</div>`
+          ? `<div class="hotspot-subtext">${escapeHtml(spot.subtext)}</div>`
           : '';
 
         div.innerHTML = `
           ${breakingBadge}
-          <div class="hotspot-marker ${spot.level || 'low'}"></div>
-          <div class="hotspot-label">${spot.name}</div>
+          <div class="hotspot-marker ${escapeHtml(spot.level || 'low')}"></div>
+          <div class="hotspot-label">${escapeHtml(spot.name)}</div>
           ${subtextHtml}
         `;
 
@@ -1728,7 +1729,7 @@ export class MapComponent {
       div.style.top = `${pos[1]}px`;
       div.innerHTML = `
         <div class="apt-icon">⚠</div>
-        <div class="apt-label">${apt.name}</div>
+        <div class="apt-label">${escapeHtml(apt.name)}</div>
       `;
 
       div.addEventListener('click', (e) => {

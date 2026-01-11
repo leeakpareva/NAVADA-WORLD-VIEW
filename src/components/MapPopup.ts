@@ -183,13 +183,13 @@ export class MapPopup {
 
     return `
       <div class="popup-header hotspot">
-        <span class="popup-title">${hotspot.name.toUpperCase()}</span>
+        <span class="popup-title">${escapeHtml(hotspot.name).toUpperCase()}</span>
         <span class="popup-badge ${severityClass}">${severityLabel}</span>
         <button class="popup-close">×</button>
       </div>
       <div class="popup-body">
-        ${hotspot.subtext ? `<div class="popup-subtitle">${hotspot.subtext}</div>` : ''}
-        ${hotspot.description ? `<p class="popup-description">${hotspot.description}</p>` : ''}
+        ${hotspot.subtext ? `<div class="popup-subtitle">${escapeHtml(hotspot.subtext)}</div>` : ''}
+        ${hotspot.description ? `<p class="popup-description">${escapeHtml(hotspot.description)}</p>` : ''}
         <div class="popup-stats">
           <div class="popup-stat">
             <span class="stat-label">COORDINATES</span>
@@ -197,7 +197,7 @@ export class MapPopup {
           </div>
           <div class="popup-stat">
             <span class="stat-label">STATUS</span>
-            <span class="stat-value">${hotspot.status || 'Monitoring'}</span>
+            <span class="stat-value">${escapeHtml(hotspot.status || 'Monitoring')}</span>
           </div>
         </div>
         ${hotspot.agencies && hotspot.agencies.length > 0 ? `

@@ -79,17 +79,6 @@ export function generateId(): string {
   return `id-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-export function escapeHtml(str: string): string {
-  const escapeMap: Record<string, string> = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
-  };
-  return str.replace(/[&<>"']/g, (char) => escapeMap[char] || char);
-}
-
 export function chunkArray<T>(items: T[], size: number): T[][] {
   const chunkSize = Math.max(1, size);
   const chunks: T[][] = [];
