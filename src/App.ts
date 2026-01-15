@@ -1634,13 +1634,27 @@ export class App {
     intervalMs: number,
     condition?: () => boolean
   ): void {
+    const HIDDEN_REFRESH_MULTIPLIER = 4;
+    const JITTER_FRACTION = 0.1;
+    const MIN_REFRESH_MS = 1000;
+    const computeDelay = (baseMs: number, isHidden: boolean) => {
+      const adjusted = baseMs * (isHidden ? HIDDEN_REFRESH_MULTIPLIER : 1);
+      const jitterRange = adjusted * JITTER_FRACTION;
+      const jittered = adjusted + (Math.random() * 2 - 1) * jitterRange;
+      return Math.max(MIN_REFRESH_MS, Math.round(jittered));
+    };
     const run = async () => {
+      const isHidden = document.visibilityState === 'hidden';
+      if (isHidden) {
+        setTimeout(run, computeDelay(intervalMs, true));
+        return;
+      }
       if (condition && !condition()) {
-        setTimeout(run, intervalMs);
+        setTimeout(run, computeDelay(intervalMs, false));
         return;
       }
       if (this.inFlight.has(name)) {
-        setTimeout(run, intervalMs);
+        setTimeout(run, computeDelay(intervalMs, false));
         return;
       }
       this.inFlight.add(name);
@@ -1650,10 +1664,10 @@ export class App {
         console.error(`[App] Refresh ${name} failed:`, e);
       } finally {
         this.inFlight.delete(name);
-        setTimeout(run, intervalMs);
+        setTimeout(run, computeDelay(intervalMs, false));
       }
     };
-    setTimeout(run, intervalMs);
+    setTimeout(run, computeDelay(intervalMs, document.visibilityState === 'hidden'));
   }
 
   private setupRefreshIntervals(): void {
