@@ -657,20 +657,30 @@ export class MapComponent {
 
     // Safety check: verify base layer groups exist in DOM and have content
     // (protects against external clearing or DOM detachment)
-    const baseGroupExists = this.baseLayerGroup?.node()?.parentNode === this.svg.node();
-    const dynamicGroupExists = this.dynamicLayerGroup?.node()?.parentNode === this.svg.node();
+    const svgNode = this.svg.node();
+    const baseNode = this.baseLayerGroup?.node();
+    const dynamicNode = this.dynamicLayerGroup?.node();
+    const baseGroupValid = baseNode && baseNode.parentNode === svgNode;
+    const dynamicGroupValid = dynamicNode && dynamicNode.parentNode === svgNode;
 
-    // Recreate layer groups if they were removed
-    if (!baseGroupExists || !dynamicGroupExists) {
-      this.svg.selectAll('.map-base, .map-dynamic').remove();
+    // Recreate layer groups if they were removed or detached
+    if (!baseGroupValid || !dynamicGroupValid) {
+      // Clear any orphaned groups
+      svgNode?.querySelectorAll('.map-base, .map-dynamic').forEach(el => el.remove());
       this.baseLayerGroup = this.svg.append('g').attr('class', 'map-base');
       this.dynamicLayerGroup = this.svg.append('g').attr('class', 'map-dynamic');
       this.baseRendered = false;
     }
 
-    // Only rebuild static base layer when size changes or content is missing
-    const baseHasContent = this.baseLayerGroup!.select('.country').node() !== null;
-    const shouldRenderBase = !this.baseRendered || !baseHasContent || width !== this.baseWidth || height !== this.baseHeight;
+    // Check if base layer has actual country content (not just empty group)
+    const countryCount = this.baseLayerGroup?.node()?.querySelectorAll('.country').length ?? 0;
+    const shouldRenderBase = !this.baseRendered || countryCount === 0 || width !== this.baseWidth || height !== this.baseHeight;
+
+    // Debug: log when base layer needs re-render
+    if (shouldRenderBase && countryCount === 0 && this.baseRendered) {
+      console.warn('[Map] Base layer missing countries, forcing re-render. countryFeatures:', this.countryFeatures?.length ?? 'null');
+    }
+
     if (shouldRenderBase && this.baseLayerGroup) {
       this.baseWidth = width;
       this.baseHeight = height;
