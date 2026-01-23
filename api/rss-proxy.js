@@ -62,6 +62,25 @@ const ALLOWED_DOMAINS = [
   'www.defensenews.com',
   'www.foreignaffairs.com',
   'www.atlanticcouncil.org',
+  // Tech variant domains
+  'www.zdnet.com',
+  'www.techmeme.com',
+  'www.darkreading.com',
+  'www.schneier.com',
+  'rss.politico.com',
+  'www.anandtech.com',
+  'www.tomshardware.com',
+  'www.semianalysis.com',
+  'feed.infoq.com',
+  'thenewstack.io',
+  'devops.com',
+  'dev.to',
+  'lobste.rs',
+  'changelog.com',
+  'seekingalpha.com',
+  'news.crunchbase.com',
+  'www.saastr.com',
+  'feeds.feedburner.com',
 ];
 
 export default async function handler(req) {
