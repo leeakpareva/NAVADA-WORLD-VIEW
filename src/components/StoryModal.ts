@@ -1,8 +1,8 @@
 import type { StoryData } from '@/services/story-data';
-import { generateStoryImage } from '@/services/story-data';
+import { renderStoryToCanvas } from '@/services/story-renderer';
 
 let modalEl: HTMLElement | null = null;
-let currentImage: string | null = null;
+let currentDataUrl: string | null = null;
 
 export function openStoryModal(data: StoryData): void {
   closeStoryModal();
@@ -14,7 +14,7 @@ export function openStoryModal(data: StoryData): void {
       <div class="story-modal-content">
         <div class="story-loading">
           <div class="story-spinner"></div>
-          <span>Generating ${data.countryName} story...</span>
+          <span>Generating story...</span>
         </div>
       </div>
       <div class="story-actions" style="display:none">
@@ -34,18 +34,29 @@ export function openStoryModal(data: StoryData): void {
 
   document.body.appendChild(modalEl);
 
-  generateStoryImage(data).then(image => {
+  // Render client-side on next frame
+  requestAnimationFrame(() => {
     if (!modalEl) return;
-    if (!image) {
+    try {
+      const canvas = renderStoryToCanvas(data);
+      currentDataUrl = canvas.toDataURL('image/png');
+
       const content = modalEl.querySelector('.story-modal-content');
-      if (content) content.innerHTML = '<div class="story-error">Failed to generate story. Try again.</div>';
-      return;
+      if (content) {
+        content.innerHTML = '';
+        const img = document.createElement('img');
+        img.className = 'story-image';
+        img.src = currentDataUrl;
+        img.alt = `${data.countryName} Intelligence Story`;
+        content.appendChild(img);
+      }
+      const actions = modalEl.querySelector('.story-actions') as HTMLElement;
+      if (actions) actions.style.display = 'flex';
+    } catch (err) {
+      console.error('[StoryModal] Render error:', err);
+      const content = modalEl?.querySelector('.story-modal-content');
+      if (content) content.innerHTML = '<div class="story-error">Failed to generate story.</div>';
     }
-    currentImage = image;
-    const content = modalEl.querySelector('.story-modal-content');
-    if (content) content.innerHTML = `<img class="story-image" src="${image}" alt="${data.countryName} Intelligence Story" />`;
-    const actions = modalEl.querySelector('.story-actions') as HTMLElement;
-    if (actions) actions.style.display = 'flex';
   });
 }
 
@@ -53,23 +64,23 @@ export function closeStoryModal(): void {
   if (modalEl) {
     modalEl.remove();
     modalEl = null;
-    currentImage = null;
+    currentDataUrl = null;
   }
 }
 
 function downloadStory(): void {
-  if (!currentImage) return;
+  if (!currentDataUrl) return;
   const a = document.createElement('a');
-  a.href = currentImage;
+  a.href = currentDataUrl;
   a.download = `worldmonitor-story-${Date.now()}.png`;
   a.click();
 }
 
 async function shareStory(countryName: string): Promise<void> {
-  if (!currentImage) return;
+  if (!currentDataUrl) return;
 
   try {
-    const resp = await fetch(currentImage);
+    const resp = await fetch(currentDataUrl);
     const blob = await resp.blob();
     const file = new File([blob], `${countryName.toLowerCase()}-worldmonitor.png`, { type: 'image/png' });
 
@@ -85,9 +96,8 @@ async function shareStory(countryName: string): Promise<void> {
     // Web Share API not available or cancelled
   }
 
-  // Fallback: copy image to clipboard
   try {
-    const resp = await fetch(currentImage);
+    const resp = await fetch(currentDataUrl);
     const blob = await resp.blob();
     await navigator.clipboard.write([
       new ClipboardItem({ 'image/png': blob }),
@@ -98,7 +108,6 @@ async function shareStory(countryName: string): Promise<void> {
       setTimeout(() => { if (btn) btn.textContent = 'Share'; }, 2000);
     }
   } catch {
-    // Clipboard API not available
     downloadStory();
   }
 }

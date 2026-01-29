@@ -142,17 +142,3 @@ export function collectStoryData(
   };
 }
 
-export async function generateStoryImage(data: StoryData): Promise<string | null> {
-  try {
-    const resp = await fetch('/api/world-stories', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!resp.ok) return null;
-    const result = await resp.json();
-    return result.image || null;
-  } catch {
-    return null;
-  }
-}
