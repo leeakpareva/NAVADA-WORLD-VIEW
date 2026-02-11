@@ -593,3 +593,13 @@ MIT License — see [LICENSE](LICENSE) for details.
   <a href="https://worldmonitor.app">worldmonitor.app</a> &nbsp;·&nbsp;
   <a href="https://tech.worldmonitor.app">tech.worldmonitor.app</a>
 </p>
+
+
+## Star History
+
+<a href="https://api.star-history.com/svg?repos=koala73/worldmonitor&type=Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=koala73/worldmonitor&type=Date&type=Date&theme=dark" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=koala73/worldmonitor&type=Date&type=Date" />
+ </picture>
+</a>
