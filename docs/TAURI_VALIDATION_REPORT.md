@@ -13,13 +13,30 @@ Validated desktop build readiness for the World Monitor Tauri app by checking fr
 
 ## Assessment
 - The web app portion compiles successfully.
-- Full Tauri desktop validation is **blocked by external package registry access restrictions** in this environment (dependency installation step), not by runtime `npx` retrieval.
-- No code/runtime defects were observed in the project code during this validation pass; failure is environmental (dependency fetch blocked), not an application runtime crash.
+- Full Tauri desktop validation in this run is blocked by an **external environment outage/restriction** (registry access denied with HTTP 403).
+- No code/runtime defects were observed in project sources during this validation pass.
+
+## Failure classification for future QA
+
+Use these labels in future reports so outcomes are actionable:
+
+1. **External environment outage**
+   - Symptoms: npm/crates registry requests fail with transport/auth/network errors (403/5xx/timeout/DNS/proxy), independent of repository state.
+   - Action: retry in a healthy network or fix credentials/proxy/mirror availability.
+
+2. **Expected failure: offline mode not provisioned**
+   - Symptoms: build is intentionally run without internet, but required offline inputs are missing (for Rust: no `vendor/` artifact or no internal mirror mapping configured; for JS: no prepared package cache).
+   - Action: provision offline artifacts/mirror config first, then rerun.
 
 ## Next action to validate desktop end-to-end
-Run the following in an environment with npm and crates.io access:
+Choose one supported path:
 
-- `npm ci` (installs pinned `@tauri-apps/cli` into `node_modules`)
-- `npm run desktop:build:full`
+- Online path:
+  - `npm ci`
+  - `npm run desktop:build:full`
+
+- Restricted-network path:
+  - Restore prebuilt offline artifacts (including `src-tauri/vendor/` or internal mirror mapping).
+  - Run Cargo with `source.crates-io.replace-with` mapped to vendored/internal source and `--offline` where applicable.
 
 After `npm ci`, desktop build uses the local `tauri` binary and does not rely on runtime `npx` package retrieval.
