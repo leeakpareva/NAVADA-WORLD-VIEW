@@ -2429,6 +2429,7 @@ export class App {
   private renderPanelToggles(): void {
     const container = document.getElementById('panelToggles')!;
     container.innerHTML = Object.entries(this.panelSettings)
+      .filter(([key]) => key !== 'runtime-config' || this.isDesktopApp)
       .map(
         ([key, panel]) => `
         <div class="panel-toggle-item ${panel.enabled ? 'active' : ''}" data-panel="${key}">

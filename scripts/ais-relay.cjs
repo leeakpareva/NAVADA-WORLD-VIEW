@@ -706,6 +706,282 @@ async function handleOpenSkyRequest(req, res, PORT) {
   }
 }
 
+// ── World Bank proxy (World Bank blocks Vercel edge IPs with 403) ──
+const worldbankCache = new Map(); // key: query string → { data, timestamp }
+const WORLDBANK_CACHE_TTL_MS = 30 * 60 * 1000; // 30 min — data rarely changes
+
+function handleWorldBankRequest(req, res) {
+  const url = new URL(req.url, `http://localhost:${PORT}`);
+  const qs = url.search || '';
+  const cacheKey = qs;
+
+  const cached = worldbankCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < WORLDBANK_CACHE_TTL_MS) {
+    return sendCompressed(req, res, 200, {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'public, max-age=1800',
+      'X-Cache': 'HIT',
+    }, cached.data);
+  }
+
+  const targetUrl = `https://api.worldbank.org/v2${qs.includes('action=indicators') ? '' : '/country'}${url.pathname.replace('/worldbank', '')}${qs}`;
+  // Passthrough: forward query params to the Vercel edge handler format
+  // The client sends the same params as /api/worldbank, so we re-fetch from upstream
+  const wbParams = new URLSearchParams(url.searchParams);
+  const action = wbParams.get('action');
+
+  if (action === 'indicators') {
+    // Static response — return indicator list directly (same as api/worldbank.js)
+    const indicators = {
+      'IT.NET.USER.ZS': 'Internet Users (% of population)',
+      'IT.CEL.SETS.P2': 'Mobile Subscriptions (per 100 people)',
+      'IT.NET.BBND.P2': 'Fixed Broadband Subscriptions (per 100 people)',
+      'IT.NET.SECR.P6': 'Secure Internet Servers (per million people)',
+      'GB.XPD.RSDV.GD.ZS': 'R&D Expenditure (% of GDP)',
+      'IP.PAT.RESD': 'Patent Applications (residents)',
+      'IP.PAT.NRES': 'Patent Applications (non-residents)',
+      'IP.TMK.TOTL': 'Trademark Applications',
+      'TX.VAL.TECH.MF.ZS': 'High-Tech Exports (% of manufactured exports)',
+      'BX.GSR.CCIS.ZS': 'ICT Service Exports (% of service exports)',
+      'TM.VAL.ICTG.ZS.UN': 'ICT Goods Imports (% of total goods imports)',
+      'SE.TER.ENRR': 'Tertiary Education Enrollment (%)',
+      'SE.XPD.TOTL.GD.ZS': 'Education Expenditure (% of GDP)',
+      'NY.GDP.MKTP.KD.ZG': 'GDP Growth (annual %)',
+      'NY.GDP.PCAP.CD': 'GDP per Capita (current US$)',
+      'NE.EXP.GNFS.ZS': 'Exports of Goods & Services (% of GDP)',
+    };
+    const defaultCountries = [
+      'USA','CHN','JPN','DEU','KOR','GBR','IND','ISR','SGP','TWN',
+      'FRA','CAN','SWE','NLD','CHE','FIN','IRL','AUS','BRA','IDN',
+      'ARE','SAU','QAT','BHR','EGY','TUR','MYS','THA','VNM','PHL',
+      'ESP','ITA','POL','CZE','DNK','NOR','AUT','BEL','PRT','EST',
+      'MEX','ARG','CHL','COL','ZAF','NGA','KEN',
+    ];
+    const body = JSON.stringify({ indicators, defaultCountries });
+    worldbankCache.set(cacheKey, { data: body, timestamp: Date.now() });
+    return sendCompressed(req, res, 200, {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'public, max-age=86400',
+      'X-Cache': 'MISS',
+    }, body);
+  }
+
+  const indicator = wbParams.get('indicator');
+  if (!indicator) {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ error: 'Missing indicator parameter' }));
+  }
+
+  const country = wbParams.get('country');
+  const countries = wbParams.get('countries');
+  const years = parseInt(wbParams.get('years') || '5', 10);
+  let countryList = country || (countries ? countries.split(',').join(';') : [
+    'USA','CHN','JPN','DEU','KOR','GBR','IND','ISR','SGP','TWN',
+    'FRA','CAN','SWE','NLD','CHE','FIN','IRL','AUS','BRA','IDN',
+    'ARE','SAU','QAT','BHR','EGY','TUR','MYS','THA','VNM','PHL',
+    'ESP','ITA','POL','CZE','DNK','NOR','AUT','BEL','PRT','EST',
+    'MEX','ARG','CHL','COL','ZAF','NGA','KEN',
+  ].join(';'));
+
+  const currentYear = new Date().getFullYear();
+  const startYear = currentYear - years;
+  const TECH_INDICATORS = {
+    'IT.NET.USER.ZS': 'Internet Users (% of population)',
+    'IT.CEL.SETS.P2': 'Mobile Subscriptions (per 100 people)',
+    'IT.NET.BBND.P2': 'Fixed Broadband Subscriptions (per 100 people)',
+    'IT.NET.SECR.P6': 'Secure Internet Servers (per million people)',
+    'GB.XPD.RSDV.GD.ZS': 'R&D Expenditure (% of GDP)',
+    'IP.PAT.RESD': 'Patent Applications (residents)',
+    'IP.PAT.NRES': 'Patent Applications (non-residents)',
+    'IP.TMK.TOTL': 'Trademark Applications',
+    'TX.VAL.TECH.MF.ZS': 'High-Tech Exports (% of manufactured exports)',
+    'BX.GSR.CCIS.ZS': 'ICT Service Exports (% of service exports)',
+    'TM.VAL.ICTG.ZS.UN': 'ICT Goods Imports (% of total goods imports)',
+    'SE.TER.ENRR': 'Tertiary Education Enrollment (%)',
+    'SE.XPD.TOTL.GD.ZS': 'Education Expenditure (% of GDP)',
+    'NY.GDP.MKTP.KD.ZG': 'GDP Growth (annual %)',
+    'NY.GDP.PCAP.CD': 'GDP per Capita (current US$)',
+    'NE.EXP.GNFS.ZS': 'Exports of Goods & Services (% of GDP)',
+  };
+
+  const wbUrl = `https://api.worldbank.org/v2/country/${countryList}/indicator/${encodeURIComponent(indicator)}?format=json&date=${startYear}:${currentYear}&per_page=1000`;
+
+  console.log('[Relay] World Bank request (MISS):', indicator);
+
+  const https = require('https');
+  const request = https.get(wbUrl, {
+    headers: {
+      'Accept': 'application/json',
+      'User-Agent': 'Mozilla/5.0 (compatible; WorldMonitor/1.0; +https://worldmonitor.app)',
+    },
+    timeout: 15000,
+  }, (response) => {
+    if (response.statusCode !== 200) {
+      res.writeHead(response.statusCode, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: `World Bank API ${response.statusCode}` }));
+    }
+    let rawData = '';
+    response.on('data', chunk => rawData += chunk);
+    response.on('end', () => {
+      try {
+        const parsed = JSON.parse(rawData);
+        // Transform raw World Bank response to match client-expected format
+        if (!parsed || !Array.isArray(parsed) || parsed.length < 2 || !parsed[1]) {
+          const empty = JSON.stringify({
+            indicator,
+            indicatorName: TECH_INDICATORS[indicator] || indicator,
+            metadata: { page: 1, pages: 1, total: 0 },
+            byCountry: {}, latestByCountry: {}, timeSeries: [],
+          });
+          worldbankCache.set(cacheKey, { data: empty, timestamp: Date.now() });
+          return sendCompressed(req, res, 200, {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'public, max-age=1800',
+            'X-Cache': 'MISS',
+          }, empty);
+        }
+
+        const [metadata, records] = parsed;
+        const transformed = {
+          indicator,
+          indicatorName: TECH_INDICATORS[indicator] || (records[0]?.indicator?.value || indicator),
+          metadata: { page: metadata.page, pages: metadata.pages, total: metadata.total },
+          byCountry: {}, latestByCountry: {}, timeSeries: [],
+        };
+
+        for (const record of records || []) {
+          const cc = record.countryiso3code || record.country?.id;
+          const cn = record.country?.value;
+          const yr = record.date;
+          const val = record.value;
+          if (!cc || val === null) continue;
+          if (!transformed.byCountry[cc]) transformed.byCountry[cc] = { code: cc, name: cn, values: [] };
+          transformed.byCountry[cc].values.push({ year: yr, value: val });
+          if (!transformed.latestByCountry[cc] || yr > transformed.latestByCountry[cc].year) {
+            transformed.latestByCountry[cc] = { code: cc, name: cn, year: yr, value: val };
+          }
+          transformed.timeSeries.push({ countryCode: cc, countryName: cn, year: yr, value: val });
+        }
+        for (const c of Object.values(transformed.byCountry)) c.values.sort((a, b) => a.year - b.year);
+        transformed.timeSeries.sort((a, b) => b.year - a.year || a.countryCode.localeCompare(b.countryCode));
+
+        const body = JSON.stringify(transformed);
+        worldbankCache.set(cacheKey, { data: body, timestamp: Date.now() });
+        sendCompressed(req, res, 200, {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'public, max-age=1800',
+          'X-Cache': 'MISS',
+        }, body);
+      } catch (e) {
+        console.error('[Relay] World Bank parse error:', e.message);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Parse error' }));
+      }
+    });
+  });
+  request.on('error', (err) => {
+    console.error('[Relay] World Bank error:', err.message);
+    if (cached) {
+      return sendCompressed(req, res, 200, {
+        'Content-Type': 'application/json',
+        'X-Cache': 'STALE',
+      }, cached.data);
+    }
+    res.writeHead(502, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: err.message }));
+  });
+  request.on('timeout', () => {
+    request.destroy();
+    if (cached) {
+      return sendCompressed(req, res, 200, {
+        'Content-Type': 'application/json',
+        'X-Cache': 'STALE',
+      }, cached.data);
+    }
+    res.writeHead(504, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'World Bank request timeout' }));
+  });
+}
+
+// ── Polymarket proxy (Cloudflare JA3 blocks Vercel edge runtime) ──
+const polymarketCache = new Map(); // key: query string → { data, timestamp }
+const POLYMARKET_CACHE_TTL_MS = 2 * 60 * 1000; // 2 min — market data changes frequently
+
+function handlePolymarketRequest(req, res) {
+  const url = new URL(req.url, `http://localhost:${PORT}`);
+  const cacheKey = url.search || '';
+
+  const cached = polymarketCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < POLYMARKET_CACHE_TTL_MS) {
+    return sendCompressed(req, res, 200, {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'public, max-age=120',
+      'X-Cache': 'HIT',
+      'X-Polymarket-Source': 'railway-cache',
+    }, cached.data);
+  }
+
+  const endpoint = url.searchParams.get('endpoint') || 'markets';
+  const params = new URLSearchParams();
+  params.set('closed', url.searchParams.get('closed') || 'false');
+  params.set('order', url.searchParams.get('order') || 'volume');
+  params.set('ascending', url.searchParams.get('ascending') || 'false');
+  const limit = Math.max(1, Math.min(100, parseInt(url.searchParams.get('limit') || '50', 10) || 50));
+  params.set('limit', String(limit));
+  const tag = url.searchParams.get('tag') || url.searchParams.get('tag_slug');
+  if (tag && endpoint === 'events') params.set('tag_slug', tag.replace(/[^a-z0-9-]/gi, '').slice(0, 100));
+
+  const gammaUrl = `https://gamma-api.polymarket.com/${endpoint}?${params}`;
+  console.log('[Relay] Polymarket request (MISS):', endpoint, tag || '');
+
+  const https = require('https');
+  const request = https.get(gammaUrl, {
+    headers: { 'Accept': 'application/json' },
+    timeout: 10000,
+  }, (response) => {
+    if (response.statusCode !== 200) {
+      console.error(`[Relay] Polymarket upstream ${response.statusCode}`);
+      res.writeHead(response.statusCode, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify([]));
+    }
+    let data = '';
+    response.on('data', chunk => data += chunk);
+    response.on('end', () => {
+      polymarketCache.set(cacheKey, { data, timestamp: Date.now() });
+      sendCompressed(req, res, 200, {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'public, max-age=120',
+        'X-Cache': 'MISS',
+        'X-Polymarket-Source': 'railway',
+      }, data);
+    });
+  });
+  request.on('error', (err) => {
+    console.error('[Relay] Polymarket error:', err.message);
+    if (cached) {
+      return sendCompressed(req, res, 200, {
+        'Content-Type': 'application/json',
+        'X-Cache': 'STALE',
+        'X-Polymarket-Source': 'railway-stale',
+      }, cached.data);
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify([]));
+  });
+  request.on('timeout', () => {
+    request.destroy();
+    if (cached) {
+      return sendCompressed(req, res, 200, {
+        'Content-Type': 'application/json',
+        'X-Cache': 'STALE',
+        'X-Polymarket-Source': 'railway-stale',
+      }, cached.data);
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify([]));
+  });
+}
+
 // Periodic cache cleanup to prevent memory leaks
 setInterval(() => {
   const now = Date.now();
@@ -714,6 +990,12 @@ setInterval(() => {
   }
   for (const [key, entry] of rssResponseCache) {
     if (now - entry.timestamp > RSS_CACHE_TTL_MS * 2) rssResponseCache.delete(key);
+  }
+  for (const [key, entry] of worldbankCache) {
+    if (now - entry.timestamp > WORLDBANK_CACHE_TTL_MS * 2) worldbankCache.delete(key);
+  }
+  for (const [key, entry] of polymarketCache) {
+    if (now - entry.timestamp > POLYMARKET_CACHE_TTL_MS * 2) polymarketCache.delete(key);
   }
 }, 60 * 1000);
 
@@ -740,6 +1022,8 @@ const server = http.createServer(async (req, res) => {
         opensky: openskyResponseCache.size,
         rss: rssResponseCache.size,
         ucdp: ucdpCache.data ? 'warm' : 'cold',
+        worldbank: worldbankCache.size,
+        polymarket: polymarketCache.size,
       },
     }));
   } else if (req.url.startsWith('/ais/snapshot')) {
@@ -906,6 +1190,10 @@ const server = http.createServer(async (req, res) => {
     handleUcdpEventsRequest(req, res);
   } else if (req.url.startsWith('/opensky')) {
     handleOpenSkyRequest(req, res, PORT);
+  } else if (req.url.startsWith('/worldbank')) {
+    handleWorldBankRequest(req, res);
+  } else if (req.url.startsWith('/polymarket')) {
+    handlePolymarketRequest(req, res);
   } else {
     res.writeHead(404);
     res.end();

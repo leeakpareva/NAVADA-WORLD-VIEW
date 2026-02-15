@@ -46,14 +46,32 @@ export interface IndicatorsResponse {
 
 const API_BASE = '/api/worldbank';
 
+// Railway relay URL for World Bank proxy (World Bank blocks Vercel IPs)
+const wsRelayUrl = import.meta.env.VITE_WS_RELAY_URL || '';
+const RAILWAY_WB_URL = wsRelayUrl
+  ? wsRelayUrl.replace('wss://', 'https://').replace('ws://', 'http://').replace(/\/$/, '') + '/worldbank'
+  : '';
+
 let indicatorsCache: IndicatorsResponse | null = null;
 const dataCache = new Map<string, { data: WorldBankResponse; timestamp: number }>();
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
+async function wbFetch(qs: string): Promise<Response> {
+  // Try Railway first (World Bank blocks Vercel IPs with 403)
+  if (RAILWAY_WB_URL) {
+    try {
+      const resp = await fetch(`${RAILWAY_WB_URL}?${qs}`);
+      if (resp.ok) return resp;
+    } catch { /* Railway unavailable, fall through */ }
+  }
+  // Fallback to Vercel edge function
+  return fetch(`${API_BASE}?${qs}`);
+}
+
 export async function getAvailableIndicators(): Promise<IndicatorsResponse> {
   if (indicatorsCache) return indicatorsCache;
 
-  const response = await fetch(`${API_BASE}?action=indicators`);
+  const response = await wbFetch('action=indicators');
   if (!response.ok) throw new Error('Failed to fetch indicators');
 
   indicatorsCache = await response.json();
@@ -80,7 +98,7 @@ export async function getIndicatorData(
     params.set('countries', countries.join(','));
   }
 
-  const response = await fetch(`${API_BASE}?${params}`);
+  const response = await wbFetch(params.toString());
   if (!response.ok) throw new Error(`Failed to fetch indicator: ${indicator}`);
 
   const data = await response.json();

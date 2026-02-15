@@ -27,6 +27,12 @@ interface PolymarketEvent {
 
 const GAMMA_API = 'https://gamma-api.polymarket.com';
 
+// Railway relay URL for Polymarket proxy (Cloudflare JA3 blocks Vercel)
+const wsRelayUrl = import.meta.env.VITE_WS_RELAY_URL || '';
+const RAILWAY_POLY_URL = wsRelayUrl
+  ? wsRelayUrl.replace('wss://', 'https://').replace('ws://', 'http://').replace(/\/$/, '') + '/polymarket'
+  : '';
+
 const breaker = createCircuitBreaker<PredictionMarket[]>({ name: 'Polymarket' });
 
 // Track whether direct browser→Polymarket fetch works
@@ -66,14 +72,25 @@ async function polyFetch(endpoint: 'events' | 'markets', params: Record<string, 
     } catch { /* Tauri command failed, fall through to proxy */ }
   }
 
-  // Web: server proxy via Vercel edge function (expects 'tag' not 'tag_slug')
+  // Proxy params (expects 'tag' not 'tag_slug' for Vercel handler)
   const proxyParams: Record<string, string> = { endpoint };
   for (const [k, v] of Object.entries(params)) {
     proxyParams[k === 'tag_slug' ? 'tag' : k] = v;
   }
   const proxyQs = new URLSearchParams(proxyParams).toString();
 
-  // Try local proxy first (works in prod, dev proxies through production)
+  // Try Railway relay (different IP/TLS fingerprint than Vercel)
+  if (RAILWAY_POLY_URL) {
+    try {
+      const resp = await fetch(`${RAILWAY_POLY_URL}?${proxyQs}`);
+      if (resp.ok) {
+        const data = await resp.clone().json();
+        if (Array.isArray(data) && data.length > 0) return resp;
+      }
+    } catch { /* Railway unavailable */ }
+  }
+
+  // Try Vercel edge function
   try {
     const resp = await fetch(`/api/polymarket?${proxyQs}`);
     if (resp.ok) {
