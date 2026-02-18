@@ -2,7 +2,7 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "World Monitor",
   "mainBinaryName": "world-monitor",
-  "version": "2.3.8",
+  "version": "2.3.9",
   "identifier": "app.worldmonitor.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -32,7 +32,8 @@
       "app",
       "dmg",
       "nsis",
-      "msi"
+      "msi",
+      "appimage"
     ],
     "category": "Productivity",
     "shortDescription": "World Monitor desktop app (supports World and Tech variants)",

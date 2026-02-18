@@ -1,6 +1,7 @@
 import { Panel } from './Panel';
 import { escapeHtml } from '@/utils/sanitize';
 import type { UcdpGeoEvent, UcdpEventType } from '@/types';
+import { t } from '@/services/i18n';
 
 export class UcdpEventsPanel extends Panel {
   private events: UcdpGeoEvent[] = [];
@@ -10,20 +11,12 @@ export class UcdpEventsPanel extends Panel {
   constructor() {
     super({
       id: 'ucdp-events',
-      title: 'UCDP Conflict Events',
+      title: t('panels.ucdpEvents'),
       showCount: true,
       trackActivity: true,
-      infoTooltip: `<strong>UCDP Georeferenced Events</strong>
-        Event-level conflict data from Uppsala University.
-        <ul>
-          <li><strong>State-Based</strong>: Government vs rebel group</li>
-          <li><strong>Non-State</strong>: Armed group vs armed group</li>
-          <li><strong>One-Sided</strong>: Violence against civilians</li>
-        </ul>
-        Deaths shown as best estimate (low-high range).
-        ACLED duplicates are filtered out automatically.`,
+      infoTooltip: t('components.ucdpEvents.infoTooltip'),
     });
-    this.showLoading('Loading UCDP events');
+    this.showLoading(t('common.loadingUcdpEvents'));
   }
 
   public setEventClickHandler(handler: (lat: number, lon: number) => void): void {
@@ -43,9 +36,9 @@ export class UcdpEventsPanel extends Panel {
   private renderContent(): void {
     const filtered = this.events.filter(e => e.type_of_violence === this.activeTab);
     const tabs: { key: UcdpEventType; label: string }[] = [
-      { key: 'state-based', label: 'State-Based' },
-      { key: 'non-state', label: 'Non-State' },
-      { key: 'one-sided', label: 'One-Sided' },
+      { key: 'state-based', label: t('components.ucdpEvents.stateBased') },
+      { key: 'non-state', label: t('components.ucdpEvents.nonState') },
+      { key: 'one-sided', label: t('components.ucdpEvents.oneSided') },
     ];
 
     const tabCounts: Record<UcdpEventType, number> = {
@@ -67,12 +60,12 @@ export class UcdpEventsPanel extends Panel {
     let bodyHtml: string;
 
     if (displayed.length === 0) {
-      bodyHtml = '<div class="panel-empty">No events in this category</div>';
+      bodyHtml = `<div class="panel-empty">${t('common.noEventsInCategory')}</div>`;
     } else {
       const rows = displayed.map(e => {
         const deathsClass = e.type_of_violence === 'state-based' ? 'ucdp-deaths-state'
           : e.type_of_violence === 'non-state' ? 'ucdp-deaths-nonstate'
-          : 'ucdp-deaths-onesided';
+            : 'ucdp-deaths-onesided';
         const deathsHtml = e.deaths_best > 0
           ? `<span class="${deathsClass}">${e.deaths_best}</span> <small class="ucdp-range">(${e.deaths_low}-${e.deaths_high})</small>`
           : '<span class="ucdp-deaths-zero">0</span>';
@@ -90,10 +83,10 @@ export class UcdpEventsPanel extends Panel {
         <table class="ucdp-table">
           <thead>
             <tr>
-              <th>Country</th>
-              <th>Deaths</th>
-              <th>Date</th>
-              <th>Actors</th>
+              <th>${t('components.ucdpEvents.country')}</th>
+              <th>${t('components.ucdpEvents.deaths')}</th>
+              <th>${t('components.ucdpEvents.date')}</th>
+              <th>${t('components.ucdpEvents.actors')}</th>
             </tr>
           </thead>
           <tbody>${rows}</tbody>
@@ -101,14 +94,14 @@ export class UcdpEventsPanel extends Panel {
     }
 
     const moreHtml = filtered.length > 50
-      ? `<div class="panel-more">${filtered.length - 50} more events not shown</div>`
+      ? `<div class="panel-more">${t('components.ucdpEvents.moreNotShown', { count: filtered.length - 50 })}</div>`
       : '';
 
     this.setContent(`
       <div class="ucdp-panel-content">
         <div class="ucdp-header">
           <div class="ucdp-tabs">${tabsHtml}</div>
-          ${totalDeaths > 0 ? `<span class="ucdp-total-deaths">${totalDeaths.toLocaleString()} deaths</span>` : ''}
+          ${totalDeaths > 0 ? `<span class="ucdp-total-deaths">${t('components.ucdpEvents.deathsCount', { count: totalDeaths.toLocaleString() })}</span>` : ''}
         </div>
         ${bodyHtml}
         ${moreHtml}

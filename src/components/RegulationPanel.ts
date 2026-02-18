@@ -7,13 +7,14 @@ import {
   getRecentActions,
 } from '@/config';
 import { escapeHtml, sanitizeUrl } from '@/utils/sanitize';
+import { t } from '@/services/i18n';
 import { getCSSColor } from '@/utils';
 
 export class RegulationPanel extends Panel {
   private viewMode: 'timeline' | 'deadlines' | 'regulations' | 'countries' = 'timeline';
 
   constructor(id: string) {
-    super({ id, title: 'AI Regulation Dashboard' });
+    super({ id, title: t('panels.regulation') });
     this.render();
   }
 

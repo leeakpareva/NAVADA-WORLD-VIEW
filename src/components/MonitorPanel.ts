@@ -1,4 +1,5 @@
 import { Panel } from './Panel';
+import { t } from '@/services/i18n';
 import type { Monitor, NewsItem } from '@/types';
 import { MONITOR_COLORS } from '@/config';
 import { generateId, formatTime, getCSSColor } from '@/utils';
@@ -9,7 +10,7 @@ export class MonitorPanel extends Panel {
   private onMonitorsChange?: (monitors: Monitor[]) => void;
 
   constructor(initialMonitors: Monitor[] = []) {
-    super({ id: 'monitors', title: 'My Monitors' });
+    super({ id: 'monitors', title: t('panels.monitors') });
     this.monitors = initialMonitors;
     this.renderInput();
   }
@@ -19,8 +20,8 @@ export class MonitorPanel extends Panel {
     const inputContainer = document.createElement('div');
     inputContainer.className = 'monitor-input-container';
     inputContainer.innerHTML = `
-      <input type="text" class="monitor-input" id="monitorKeywords" placeholder="Keywords (comma separated)">
-      <button class="monitor-add-btn" id="addMonitorBtn">+ Add Monitor</button>
+      <input type="text" class="monitor-input" id="monitorKeywords" placeholder="${t('components.monitor.placeholder')}">
+      <button class="monitor-add-btn" id="addMonitorBtn">${t('components.monitor.add')}</button>
     `;
 
     this.content.appendChild(inputContainer);
@@ -99,7 +100,7 @@ export class MonitorPanel extends Panel {
 
     if (this.monitors.length === 0) {
       results.innerHTML =
-        '<div style="color: var(--text-dim); font-size: 10px; margin-top: 12px;">Add keywords to monitor news</div>';
+        `<div style="color: var(--text-dim); font-size: 10px; margin-top: 12px;">${t('components.monitor.addKeywords')}</div>`;
       return;
     }
 
@@ -108,7 +109,7 @@ export class MonitorPanel extends Panel {
     news.forEach((item) => {
       this.monitors.forEach((monitor) => {
         // Search both title and description for better coverage
-        const searchText = `${item.title} ${(item as unknown as {description?: string}).description || ''}`.toLowerCase();
+        const searchText = `${item.title} ${(item as unknown as { description?: string }).description || ''}`.toLowerCase();
         const matched = monitor.keywords.some((kw) => {
           // Use word boundary matching to avoid false positives like "ai" in "train"
           const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -131,13 +132,13 @@ export class MonitorPanel extends Panel {
 
     if (unique.length === 0) {
       results.innerHTML =
-        `<div style="color: var(--text-dim); font-size: 10px; margin-top: 12px;">No matches in ${news.length} articles</div>`;
+        `<div style="color: var(--text-dim); font-size: 10px; margin-top: 12px;">${t('components.monitor.noMatches', { count: String(news.length) })}</div>`;
       return;
     }
 
     const countText = unique.length > 10
-      ? `Showing 10 of ${unique.length} matches`
-      : `${unique.length} match${unique.length === 1 ? '' : 'es'}`;
+      ? t('components.monitor.showingMatches', { count: '10', total: String(unique.length) })
+      : `${unique.length} ${unique.length === 1 ? t('components.monitor.match') : t('components.monitor.matches')}`;
 
     results.innerHTML = `
       <div style="color: var(--text-dim); font-size: 10px; margin: 12px 0 8px;">${countText}</div>

@@ -37,7 +37,7 @@ import { buildMapUrl, debounce, loadFromStorage, parseMapUrlState, saveToStorage
 import { reverseGeocode } from '@/utils/reverse-geocode';
 import { CountryBriefPage } from '@/components/CountryBriefPage';
 import { maybeShowDownloadBanner } from '@/components/DownloadBanner';
-import { maybeShowCommunityWidget } from '@/components/CommunityWidget';
+import { mountCommunityWidget } from '@/components/CommunityWidget';
 import { CountryTimeline, type TimelineEvent } from '@/components/CountryTimeline';
 import { escapeHtml } from '@/utils/sanitize';
 import type { ParsedMapUrlState } from '@/utils';
@@ -98,6 +98,7 @@ import { isDesktopRuntime } from '@/services/runtime';
 import { isFeatureAvailable } from '@/services/runtime-config';
 import { invokeTauri } from '@/services/tauri-bridge';
 import { getCountryAtCoordinates, hasCountryGeometry, isCoordinateInCountry, preloadCountryGeometry } from '@/services/country-geometry';
+import { initI18n, t, changeLanguage, getCurrentLanguage, LANGUAGES } from '@/services/i18n';
 
 import type { PredictionMarket, MarketData, ClusteredEvent } from '@/types';
 
@@ -295,6 +296,7 @@ export class App {
 
   public async init(): Promise<void> {
     await initDB();
+    await initI18n();
 
     // Initialize ML worker (desktop only - automatically disabled on mobile)
     await mlWorker.init();
@@ -1138,18 +1140,18 @@ export class App {
   private setupSearchModal(): void {
     const searchOptions = SITE_VARIANT === 'tech'
       ? {
-          placeholder: 'Search companies, AI labs, startups, events...',
-          hint: 'HQs • Companies • AI Labs • Startups • Accelerators • Events',
-        }
+        placeholder: t('modals.search.placeholderTech'),
+        hint: t('modals.search.hintTech'),
+      }
       : SITE_VARIANT === 'finance'
       ? {
-          placeholder: 'Search exchanges, markets, central banks...',
-          hint: 'Exchanges • Financial Centers • Central Banks • Commodities',
+          placeholder: t('modals.search.placeholderFinance'),
+          hint: t('modals.search.hintFinance'),
         }
       : {
-          placeholder: 'Search news, pipelines, bases, markets...',
-          hint: 'News • Countries • Hotspots • Conflicts • Bases • Pipelines • Cables • Datacenters',
-        };
+        placeholder: t('modals.search.placeholder'),
+        hint: t('modals.search.hint'),
+      };
     this.searchModal = new SearchModal(this.container, searchOptions);
 
     if (SITE_VARIANT === 'tech') {
@@ -1661,6 +1663,11 @@ export class App {
   }
 
   private renderLayout(): void {
+    const currentLang = getCurrentLanguage();
+    const langOptions = LANGUAGES.map(l =>
+      `<option value="${l.code}" ${l.code === currentLang ? 'selected' : ''}>${l.flag} ${l.code.toUpperCase()}</option>`
+    ).join('');
+
     this.container.innerHTML = `
       <div class="header">
         <div class="header-left">
@@ -1669,27 +1676,27 @@ export class App {
                class="variant-option ${SITE_VARIANT === 'full' ? 'active' : ''}"
                data-variant="full"
                ${!this.isDesktopApp && SITE_VARIANT !== 'full' ? 'target="_blank" rel="noopener"' : ''}
-               title="Geopolitical Intelligence${SITE_VARIANT === 'full' ? ' (current)' : ''}">
+               title="${t('header.world')}${SITE_VARIANT === 'full' ? ` ${t('common.currentVariant')}` : ''}">
               <span class="variant-icon">🌍</span>
-              <span class="variant-label">WORLD</span>
+              <span class="variant-label">${t('header.world')}</span>
             </a>
             <span class="variant-divider"></span>
             <a href="${this.isDesktopApp ? '#' : (SITE_VARIANT === 'tech' ? '#' : 'https://tech.worldmonitor.app')}"
                class="variant-option ${SITE_VARIANT === 'tech' ? 'active' : ''}"
                data-variant="tech"
                ${!this.isDesktopApp && SITE_VARIANT !== 'tech' ? 'target="_blank" rel="noopener"' : ''}
-               title="Tech & AI Intelligence${SITE_VARIANT === 'tech' ? ' (current)' : ''}">
+               title="${t('header.tech')}${SITE_VARIANT === 'tech' ? ` ${t('common.currentVariant')}` : ''}">
               <span class="variant-icon">💻</span>
-              <span class="variant-label">TECH</span>
+              <span class="variant-label">${t('header.tech')}</span>
             </a>
             <span class="variant-divider"></span>
             <a href="${this.isDesktopApp ? '#' : (SITE_VARIANT === 'finance' ? '#' : 'https://finance.worldmonitor.app')}"
                class="variant-option ${SITE_VARIANT === 'finance' ? 'active' : ''}"
                data-variant="finance"
                ${!this.isDesktopApp && SITE_VARIANT !== 'finance' ? 'target="_blank" rel="noopener"' : ''}
-               title="Finance & Trading${SITE_VARIANT === 'finance' ? ' (current)' : ''}">
+               title="${t('header.finance')}${SITE_VARIANT === 'finance' ? ` ${t('common.currentVariant')}` : ''}">
               <span class="variant-icon">📈</span>
-              <span class="variant-label">FINANCE</span>
+              <span class="variant-label">${t('header.finance')}</span>
             </a>
           </div>
           <span class="logo">MONITOR</span><span class="version">v${__APP_VERSION__}</span>
@@ -1697,47 +1704,50 @@ export class App {
             <svg class="x-logo" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
             <span class="credit-text">@eliehabib</span>
           </a>
-          <a href="https://github.com/koala73/worldmonitor" target="_blank" rel="noopener" class="github-link" title="View on GitHub">
+          <a href="https://github.com/koala73/worldmonitor" target="_blank" rel="noopener" class="github-link" title="${t('header.viewOnGitHub')}">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
           </a>
           <div class="status-indicator">
             <span class="status-dot"></span>
-            <span>LIVE</span>
+            <span>${t('header.live')}</span>
           </div>
           <div class="region-selector">
             <select id="regionSelect" class="region-select">
-              <option value="global">Global</option>
-              <option value="america">Americas</option>
-              <option value="mena">MENA</option>
-              <option value="eu">Europe</option>
-              <option value="asia">Asia</option>
-              <option value="latam">Latin America</option>
-              <option value="africa">Africa</option>
-              <option value="oceania">Oceania</option>
+              <option value="global">${t('components.deckgl.views.global')}</option>
+              <option value="america">${t('components.deckgl.views.americas')}</option>
+              <option value="mena">${t('components.deckgl.views.mena')}</option>
+              <option value="eu">${t('components.deckgl.views.europe')}</option>
+              <option value="asia">${t('components.deckgl.views.asia')}</option>
+              <option value="latam">${t('components.deckgl.views.latam')}</option>
+              <option value="africa">${t('components.deckgl.views.africa')}</option>
+              <option value="oceania">${t('components.deckgl.views.oceania')}</option>
             </select>
           </div>
         </div>
         <div class="header-right">
-          <button class="search-btn" id="searchBtn"><kbd>⌘K</kbd> Search</button>
-          ${this.isDesktopApp ? '' : '<button class="copy-link-btn" id="copyLinkBtn">Copy Link</button>'}
-          <button class="theme-toggle-btn" id="headerThemeToggle" title="Toggle dark/light mode">
+          <select id="langSelect" class="lang-select">
+            ${langOptions}
+          </select>
+          <button class="search-btn" id="searchBtn"><kbd>⌘K</kbd> ${t('header.search')}</button>
+          ${this.isDesktopApp ? '' : `<button class="copy-link-btn" id="copyLinkBtn">${t('header.copyLink')}</button>`}
+          <button class="theme-toggle-btn" id="headerThemeToggle" title="${t('header.toggleTheme')}">
             ${getCurrentTheme() === 'dark'
               ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>'
               : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'}
           </button>
-          ${this.isDesktopApp ? '' : '<button class="fullscreen-btn" id="fullscreenBtn" title="Toggle Fullscreen">⛶</button>'}
-          <button class="settings-btn" id="settingsBtn">⚙ PANELS</button>
-          <button class="sources-btn" id="sourcesBtn">📡 SOURCES</button>
+          ${this.isDesktopApp ? '' : `<button class="fullscreen-btn" id="fullscreenBtn" title="${t('header.fullscreen')}">⛶</button>`}
+          <button class="settings-btn" id="settingsBtn">⚙ ${t('header.settings')}</button>
+          <button class="sources-btn" id="sourcesBtn">📡 ${t('header.sources')}</button>
         </div>
       </div>
       <div class="main-content">
         <div class="map-section" id="mapSection">
           <div class="panel-header">
             <div class="panel-header-left">
-              <span class="panel-title">${SITE_VARIANT === 'tech' ? 'Global Tech' : 'Global Situation'}</span>
+              <span class="panel-title">${SITE_VARIANT === 'tech' ? t('panels.techMap') : t('panels.map')}</span>
             </div>
             <span class="header-clock" id="headerClock"></span>
-            <button class="map-pin-btn" id="mapPinBtn" title="Pin map to top">
+            <button class="map-pin-btn" id="mapPinBtn" title="${t('header.pinMap')}">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M12 17v5M9 10.76a2 2 0 01-1.11 1.79l-1.78.9A2 2 0 005 15.24V16a1 1 0 001 1h12a1 1 0 001-1v-.76a2 2 0 00-1.11-1.79l-1.78-.9A2 2 0 0115 10.76V7a1 1 0 011-1 1 1 0 001-1V4a1 1 0 00-1-1H8a1 1 0 00-1 1v1a1 1 0 001 1 1 1 0 011 1v3.76z"/>
               </svg>
@@ -1751,7 +1761,7 @@ export class App {
       <div class="modal-overlay" id="settingsModal">
         <div class="modal">
           <div class="modal-header">
-            <span class="modal-title">Panels</span>
+            <span class="modal-title">${t('header.settings')}</span>
             <button class="modal-close" id="modalClose">×</button>
           </div>
           <div class="panel-toggle-grid" id="panelToggles"></div>
@@ -1760,17 +1770,17 @@ export class App {
       <div class="modal-overlay" id="sourcesModal">
         <div class="modal sources-modal">
           <div class="modal-header">
-            <span class="modal-title">News Sources</span>
+            <span class="modal-title">${t('header.sources')}</span>
             <span class="sources-counter" id="sourcesCounter"></span>
             <button class="modal-close" id="sourcesModalClose">×</button>
           </div>
           <div class="sources-search">
-            <input type="text" id="sourcesSearch" placeholder="Filter sources..." />
+            <input type="text" id="sourcesSearch" placeholder="${t('header.filterSources')}" />
           </div>
           <div class="sources-toggle-grid" id="sourceToggles"></div>
           <div class="sources-footer">
-            <button class="sources-select-all" id="sourcesSelectAll">Select All</button>
-            <button class="sources-select-none" id="sourcesSelectNone">Select None</button>
+            <button class="sources-select-all" id="sourcesSelectAll">${t('common.selectAll')}</button>
+            <button class="sources-select-none" id="sourcesSelectNone">${t('common.selectNone')}</button>
           </div>
         </div>
       </div>
@@ -1918,17 +1928,17 @@ export class App {
     this.currentTimeRange = this.map.getTimeRange();
 
     // Create all panels
-    const politicsPanel = new NewsPanel('politics', 'World / Geopolitical');
+    const politicsPanel = new NewsPanel('politics', t('panels.politics'));
     this.attachRelatedAssetHandlers(politicsPanel);
     this.newsPanels['politics'] = politicsPanel;
     this.panels['politics'] = politicsPanel;
 
-    const techPanel = new NewsPanel('tech', 'Technology / AI');
+    const techPanel = new NewsPanel('tech', t('panels.tech'));
     this.attachRelatedAssetHandlers(techPanel);
     this.newsPanels['tech'] = techPanel;
     this.panels['tech'] = techPanel;
 
-    const financePanel = new NewsPanel('finance', 'Financial News');
+    const financePanel = new NewsPanel('finance', t('panels.finance'));
     this.attachRelatedAssetHandlers(financePanel);
     this.newsPanels['finance'] = financePanel;
     this.panels['finance'] = financePanel;
@@ -1953,12 +1963,12 @@ export class App {
     const predictionPanel = new PredictionPanel();
     this.panels['polymarket'] = predictionPanel;
 
-    const govPanel = new NewsPanel('gov', 'Government / Policy');
+    const govPanel = new NewsPanel('gov', t('panels.gov'));
     this.attachRelatedAssetHandlers(govPanel);
     this.newsPanels['gov'] = govPanel;
     this.panels['gov'] = govPanel;
 
-    const intelPanel = new NewsPanel('intel', 'Intel Feed');
+    const intelPanel = new NewsPanel('intel', t('panels.intel'));
     this.attachRelatedAssetHandlers(intelPanel);
     this.newsPanels['intel'] = intelPanel;
     this.panels['intel'] = intelPanel;
@@ -1966,93 +1976,93 @@ export class App {
     const cryptoPanel = new CryptoPanel();
     this.panels['crypto'] = cryptoPanel;
 
-    const middleeastPanel = new NewsPanel('middleeast', 'Middle East / MENA');
+    const middleeastPanel = new NewsPanel('middleeast', t('panels.middleeast'));
     this.attachRelatedAssetHandlers(middleeastPanel);
     this.newsPanels['middleeast'] = middleeastPanel;
     this.panels['middleeast'] = middleeastPanel;
 
-    const layoffsPanel = new NewsPanel('layoffs', 'Layoffs Tracker');
+    const layoffsPanel = new NewsPanel('layoffs', t('panels.layoffs'));
     this.attachRelatedAssetHandlers(layoffsPanel);
     this.newsPanels['layoffs'] = layoffsPanel;
     this.panels['layoffs'] = layoffsPanel;
 
-    const aiPanel = new NewsPanel('ai', 'AI / ML');
+    const aiPanel = new NewsPanel('ai', t('panels.ai'));
     this.attachRelatedAssetHandlers(aiPanel);
     this.newsPanels['ai'] = aiPanel;
     this.panels['ai'] = aiPanel;
 
     // Tech variant panels
-    const startupsPanel = new NewsPanel('startups', 'Startups & VC');
+    const startupsPanel = new NewsPanel('startups', t('panels.startups'));
     this.attachRelatedAssetHandlers(startupsPanel);
     this.newsPanels['startups'] = startupsPanel;
     this.panels['startups'] = startupsPanel;
 
-    const vcblogsPanel = new NewsPanel('vcblogs', 'VC Insights & Essays');
+    const vcblogsPanel = new NewsPanel('vcblogs', t('panels.vcblogs'));
     this.attachRelatedAssetHandlers(vcblogsPanel);
     this.newsPanels['vcblogs'] = vcblogsPanel;
     this.panels['vcblogs'] = vcblogsPanel;
 
-    const regionalStartupsPanel = new NewsPanel('regionalStartups', 'Global Startup News');
+    const regionalStartupsPanel = new NewsPanel('regionalStartups', t('panels.regionalStartups'));
     this.attachRelatedAssetHandlers(regionalStartupsPanel);
     this.newsPanels['regionalStartups'] = regionalStartupsPanel;
     this.panels['regionalStartups'] = regionalStartupsPanel;
 
-    const unicornsPanel = new NewsPanel('unicorns', 'Unicorn Tracker');
+    const unicornsPanel = new NewsPanel('unicorns', t('panels.unicorns'));
     this.attachRelatedAssetHandlers(unicornsPanel);
     this.newsPanels['unicorns'] = unicornsPanel;
     this.panels['unicorns'] = unicornsPanel;
 
-    const acceleratorsPanel = new NewsPanel('accelerators', 'Accelerators & Demo Days');
+    const acceleratorsPanel = new NewsPanel('accelerators', t('panels.accelerators'));
     this.attachRelatedAssetHandlers(acceleratorsPanel);
     this.newsPanels['accelerators'] = acceleratorsPanel;
     this.panels['accelerators'] = acceleratorsPanel;
 
-    const fundingPanel = new NewsPanel('funding', 'Funding & VC');
+    const fundingPanel = new NewsPanel('funding', t('panels.funding'));
     this.attachRelatedAssetHandlers(fundingPanel);
     this.newsPanels['funding'] = fundingPanel;
     this.panels['funding'] = fundingPanel;
 
-    const producthuntPanel = new NewsPanel('producthunt', 'Product Hunt');
+    const producthuntPanel = new NewsPanel('producthunt', t('panels.producthunt'));
     this.attachRelatedAssetHandlers(producthuntPanel);
     this.newsPanels['producthunt'] = producthuntPanel;
     this.panels['producthunt'] = producthuntPanel;
 
-    const securityPanel = new NewsPanel('security', 'Cybersecurity');
+    const securityPanel = new NewsPanel('security', t('panels.security'));
     this.attachRelatedAssetHandlers(securityPanel);
     this.newsPanels['security'] = securityPanel;
     this.panels['security'] = securityPanel;
 
-    const policyPanel = new NewsPanel('policy', 'AI Policy & Regulation');
+    const policyPanel = new NewsPanel('policy', t('panels.policy'));
     this.attachRelatedAssetHandlers(policyPanel);
     this.newsPanels['policy'] = policyPanel;
     this.panels['policy'] = policyPanel;
 
-    const hardwarePanel = new NewsPanel('hardware', 'Semiconductors & Hardware');
+    const hardwarePanel = new NewsPanel('hardware', t('panels.hardware'));
     this.attachRelatedAssetHandlers(hardwarePanel);
     this.newsPanels['hardware'] = hardwarePanel;
     this.panels['hardware'] = hardwarePanel;
 
-    const cloudPanel = new NewsPanel('cloud', 'Cloud & Infrastructure');
+    const cloudPanel = new NewsPanel('cloud', t('panels.cloud'));
     this.attachRelatedAssetHandlers(cloudPanel);
     this.newsPanels['cloud'] = cloudPanel;
     this.panels['cloud'] = cloudPanel;
 
-    const devPanel = new NewsPanel('dev', 'Developer Community');
+    const devPanel = new NewsPanel('dev', t('panels.dev'));
     this.attachRelatedAssetHandlers(devPanel);
     this.newsPanels['dev'] = devPanel;
     this.panels['dev'] = devPanel;
 
-    const githubPanel = new NewsPanel('github', 'GitHub Trending');
+    const githubPanel = new NewsPanel('github', t('panels.github'));
     this.attachRelatedAssetHandlers(githubPanel);
     this.newsPanels['github'] = githubPanel;
     this.panels['github'] = githubPanel;
 
-    const ipoPanel = new NewsPanel('ipo', 'IPO & SPAC');
+    const ipoPanel = new NewsPanel('ipo', t('panels.ipo'));
     this.attachRelatedAssetHandlers(ipoPanel);
     this.newsPanels['ipo'] = ipoPanel;
     this.panels['ipo'] = ipoPanel;
 
-    const thinktanksPanel = new NewsPanel('thinktanks', 'Think Tanks');
+    const thinktanksPanel = new NewsPanel('thinktanks', t('panels.thinktanks'));
     this.attachRelatedAssetHandlers(thinktanksPanel);
     this.newsPanels['thinktanks'] = thinktanksPanel;
     this.panels['thinktanks'] = thinktanksPanel;
@@ -2061,22 +2071,22 @@ export class App {
     this.panels['economic'] = economicPanel;
 
     // New Regional Panels
-    const africaPanel = new NewsPanel('africa', 'Africa');
+    const africaPanel = new NewsPanel('africa', t('panels.africa'));
     this.attachRelatedAssetHandlers(africaPanel);
     this.newsPanels['africa'] = africaPanel;
     this.panels['africa'] = africaPanel;
 
-    const latamPanel = new NewsPanel('latam', 'Latin America');
+    const latamPanel = new NewsPanel('latam', t('panels.latam'));
     this.attachRelatedAssetHandlers(latamPanel);
     this.newsPanels['latam'] = latamPanel;
     this.panels['latam'] = latamPanel;
 
-    const asiaPanel = new NewsPanel('asia', 'Asia-Pacific');
+    const asiaPanel = new NewsPanel('asia', t('panels.asia'));
     this.attachRelatedAssetHandlers(asiaPanel);
     this.newsPanels['asia'] = asiaPanel;
     this.panels['asia'] = asiaPanel;
 
-    const energyPanel = new NewsPanel('energy', 'Energy & Resources');
+    const energyPanel = new NewsPanel('energy', t('panels.energy'));
     this.attachRelatedAssetHandlers(energyPanel);
     this.newsPanels['energy'] = energyPanel;
     this.panels['energy'] = energyPanel;
@@ -2473,6 +2483,12 @@ export class App {
       this.map?.setView(regionSelect.value as MapView);
     });
 
+    // Language selector
+    const langSelect = document.getElementById('langSelect') as HTMLSelectElement;
+    langSelect?.addEventListener('change', () => {
+      void changeLanguage(langSelect.value);
+    });
+
     // Window resize
     this.boundResizeHandler = () => {
       this.map?.render();
@@ -2684,7 +2700,7 @@ export class App {
         ([key, panel]) => `
         <div class="panel-toggle-item ${panel.enabled ? 'active' : ''}" data-panel="${key}">
           <div class="panel-toggle-checkbox">${panel.enabled ? '✓' : ''}</div>
-          <span class="panel-toggle-label">${panel.name}</span>
+          <span class="panel-toggle-label">${this.getLocalizedPanelName(key, panel.name)}</span>
         </div>
       `
       )
@@ -2722,6 +2738,16 @@ export class App {
         }
       });
     });
+  }
+
+  private getLocalizedPanelName(panelKey: string, fallback: string): string {
+    if (panelKey === 'runtime-config') {
+      return t('modals.runtimeConfig.title');
+    }
+    const key = panelKey.replace(/-([a-z])/g, (_match, group: string) => group.toUpperCase());
+    const lookup = `panels.${key}`;
+    const localized = t(lookup);
+    return localized === lookup ? fallback : localized;
   }
 
   private getAllSourceNames(): string[] {
@@ -2769,7 +2795,7 @@ export class App {
     const enabledCount = allSources.length - this.disabledSources.size;
     const counterEl = document.getElementById('sourcesCounter');
     if (counterEl) {
-      counterEl.textContent = `${enabledCount}/${allSources.length} enabled`;
+      counterEl.textContent = t('header.sourcesEnabled', { enabled: String(enabledCount), total: String(allSources.length) });
     }
   }
 
@@ -3068,7 +3094,7 @@ export class App {
       const enabledFeeds = (feeds ?? []).filter(f => !this.disabledSources.has(f.name));
       if (enabledFeeds.length === 0) {
         delete this.newsByCategory[category];
-        if (panel) panel.showError('All sources disabled');
+        if (panel) panel.showError(t('common.allSourcesDisabled'));
         this.statusPanel?.updateFeed(category.charAt(0).toUpperCase() + category.slice(1), {
           status: 'ok',
           itemCount: 0,
@@ -3176,7 +3202,7 @@ export class App {
       const intelPanel = this.newsPanels['intel'];
       if (enabledIntelSources.length === 0) {
         delete this.newsByCategory['intel'];
-        if (intelPanel) intelPanel.showError('All Intel sources disabled');
+        if (intelPanel) intelPanel.showError(t('common.allIntelSourcesDisabled'));
         this.statusPanel?.updateFeed('Intel', { status: 'ok', itemCount: 0 });
       } else {
         const intelResult = await Promise.allSettled([fetchCategoryFeeds(enabledIntelSources)]);
@@ -3201,13 +3227,13 @@ export class App {
     this.allNews = collectedNews;
     this.initialLoadComplete = true;
     maybeShowDownloadBanner();
-    maybeShowCommunityWidget();
+    mountCommunityWidget();
     // Temporal baseline: report news volume
     updateAndCheck([
       { type: 'news', region: 'global', count: collectedNews.length },
     ]).then(anomalies => {
       if (anomalies.length > 0) signalAggregator.ingestTemporalAnomalies(anomalies);
-    }).catch(() => {});
+    }).catch(() => { });
 
     // Update map hotspots
     this.map?.updateHotspotActivity(this.allNews);
@@ -3577,7 +3603,7 @@ export class App {
           { type: 'vessels', region: 'global', count: vesselData.vessels.length },
         ]).then(anomalies => {
           if (anomalies.length > 0) signalAggregator.ingestTemporalAnomalies(anomalies);
-        }).catch(() => {});
+        }).catch(() => { });
         // Update map only if layer is visible
         if (this.mapLayers.military) {
           this.map?.setMilitaryFlights(flightData.flights, flightData.clusters);
@@ -3772,7 +3798,7 @@ export class App {
         { type: 'ais_gaps', region: 'global', count: disruptions.length },
       ]).then(anomalies => {
         if (anomalies.length > 0) signalAggregator.ingestTemporalAnomalies(anomalies);
-      }).catch(() => {});
+      }).catch(() => { });
 
       const hasData = disruptions.length > 0 || density.length > 0;
       this.map?.setLayerReady('ais', hasData);
@@ -3957,7 +3983,7 @@ export class App {
         { type: 'vessels', region: 'global', count: vesselData.vessels.length },
       ]).then(anomalies => {
         if (anomalies.length > 0) signalAggregator.ingestTemporalAnomalies(anomalies);
-      }).catch(() => {});
+      }).catch(() => { });
       this.map?.updateMilitaryForEscalation(flightData.flights, vesselData.vessels);
       (this.panels['cii'] as CIIPanel)?.refresh();
       if (!isInLearningMode()) {
@@ -4162,7 +4188,7 @@ export class App {
           if (anomalies.length > 0) {
             signalAggregator.ingestTemporalAnomalies(anomalies);
           }
-        }).catch(() => {});
+        }).catch(() => { });
       } else {
         // Still update panel so it exits loading spinner
         (this.panels['satellite-fires'] as SatelliteFiresPanel)?.update([], 0);

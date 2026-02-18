@@ -1,4 +1,5 @@
 import { Panel } from './Panel';
+import { t } from '@/services/i18n';
 import { escapeHtml, sanitizeUrl } from '@/utils/sanitize';
 
 interface TechEventCoords {
@@ -39,7 +40,7 @@ export class TechEventsPanel extends Panel {
   private error: string | null = null;
 
   constructor(id: string) {
-    super({ id, title: 'Tech Events', showCount: true });
+    super({ id, title: t('panels.events'), showCount: true });
     this.element.classList.add('panel-tall');
     void this.fetchEvents();
   }
@@ -72,7 +73,7 @@ export class TechEventsPanel extends Panel {
       this.content.innerHTML = `
         <div class="tech-events-loading">
           <div class="loading-spinner"></div>
-          <span>Loading tech events...</span>
+          <span>${t('components.techEvents.loading')}</span>
         </div>
       `;
       return;
@@ -108,9 +109,9 @@ export class TechEventsPanel extends Panel {
         </div>
         <div class="tech-events-list">
           ${filteredEvents.length > 0
-            ? filteredEvents.map(e => this.renderEvent(e)).join('')
-            : '<div class="empty-state">No events to display</div>'
-          }
+        ? filteredEvents.map(e => this.renderEvent(e)).join('')
+        : `<div class="empty-state">${t('components.techEvents.noEvents')}</div>`
+      }
         </div>
       </div>
     `;
@@ -191,7 +192,7 @@ export class TechEventsPanel extends Panel {
     };
 
     const mapLink = event.coords && !event.coords.virtual
-      ? `<button class="event-map-link" data-lat="${event.coords.lat}" data-lng="${event.coords.lng}" title="Show on map">📍</button>`
+      ? `<button class="event-map-link" data-lat="${event.coords.lat}" data-lng="${event.coords.lng}" title="${t('components.techEvents.showOnMap')}">📍</button>`
       : '';
 
     const locationText = event.location
@@ -200,7 +201,7 @@ export class TechEventsPanel extends Panel {
 
     const safeEventUrl = sanitizeUrl(event.url || '');
     const urlLink = safeEventUrl
-      ? `<a href="${safeEventUrl}" target="_blank" rel="noopener" class="event-url" title="More info">↗</a>`
+      ? `<a href="${safeEventUrl}" target="_blank" rel="noopener" class="event-url" title="${t('components.techEvents.moreInfo')}">↗</a>`
       : '';
 
     return `

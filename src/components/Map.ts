@@ -50,6 +50,7 @@ import {
 } from '@/services/hotspot-escalation';
 import { getCountryScore } from '@/services/country-instability';
 import { getAlertsNearLocation } from '@/services/geo-convergence';
+import { t } from '@/services/i18n';
 
 export type TimeRange = '1h' | '6h' | '24h' | '48h' | '7d' | 'all';
 export type MapView = 'global' | 'america' | 'mena' | 'eu' | 'asia' | 'latam' | 'africa' | 'oceania';
@@ -357,21 +358,45 @@ export class MapComponent {
       'natural', 'weather',                               // natural events
     ];
     const layers = SITE_VARIANT === 'tech' ? techLayers : SITE_VARIANT === 'finance' ? financeLayers : fullLayers;
-    const layerLabels: Partial<Record<keyof MapLayers, string>> = {
-      ais: 'Shipping',
-      flights: 'Delays',
-      military: 'Military',
-      stockExchanges: 'Exchanges',
-      financialCenters: 'Fin Centers',
-      centralBanks: 'Central Banks',
-      commodityHubs: 'Commodities',
+    const layerLabelKeys: Partial<Record<keyof MapLayers, string>> = {
+      hotspots: 'components.deckgl.layers.intelHotspots',
+      conflicts: 'components.deckgl.layers.conflictZones',
+      bases: 'components.deckgl.layers.militaryBases',
+      nuclear: 'components.deckgl.layers.nuclearSites',
+      irradiators: 'components.deckgl.layers.gammaIrradiators',
+      military: 'components.deckgl.layers.militaryActivity',
+      cables: 'components.deckgl.layers.underseaCables',
+      pipelines: 'components.deckgl.layers.pipelines',
+      outages: 'components.deckgl.layers.internetOutages',
+      datacenters: 'components.deckgl.layers.aiDataCenters',
+      ais: 'components.deckgl.layers.shipTraffic',
+      flights: 'components.deckgl.layers.flightDelays',
+      natural: 'components.deckgl.layers.naturalEvents',
+      weather: 'components.deckgl.layers.weatherAlerts',
+      economic: 'components.deckgl.layers.economicCenters',
+      waterways: 'components.deckgl.layers.strategicWaterways',
+      startupHubs: 'components.deckgl.layers.startupHubs',
+      cloudRegions: 'components.deckgl.layers.cloudRegions',
+      accelerators: 'components.deckgl.layers.accelerators',
+      techHQs: 'components.deckgl.layers.techHQs',
+      techEvents: 'components.deckgl.layers.techEvents',
+      stockExchanges: 'components.deckgl.layers.stockExchanges',
+      financialCenters: 'components.deckgl.layers.financialCenters',
+      centralBanks: 'components.deckgl.layers.centralBanks',
+      commodityHubs: 'components.deckgl.layers.commodityHubs',
+      gulfInvestments: 'components.deckgl.layers.gulfInvestments',
+    };
+    const getLayerLabel = (layer: keyof MapLayers): string => {
+      if (layer === 'sanctions') return t('components.deckgl.layerHelp.labels.sanctions');
+      const key = layerLabelKeys[layer];
+      return key ? t(key) : layer;
     };
 
     layers.forEach((layer) => {
       const btn = document.createElement('button');
       btn.className = `layer-toggle ${this.state.layers[layer] ? 'active' : ''}`;
       btn.dataset.layer = layer;
-      btn.textContent = layerLabels[layer] || layer;
+      btn.textContent = getLayerLabel(layer);
       btn.addEventListener('click', () => this.toggleLayer(layer));
       toggles.appendChild(btn);
     });
@@ -380,7 +405,7 @@ export class MapComponent {
     const helpBtn = document.createElement('button');
     helpBtn.className = 'layer-help-btn';
     helpBtn.textContent = '?';
-    helpBtn.title = 'Layer descriptions';
+    helpBtn.title = t('components.deckgl.layerGuide');
     helpBtn.addEventListener('click', () => this.showLayerHelp());
     toggles.appendChild(helpBtn);
 
@@ -397,88 +422,117 @@ export class MapComponent {
     const popup = document.createElement('div');
     popup.className = 'layer-help-popup';
 
-    const techHelpContent = `
+    const label = (layerKey: string): string => t(`components.deckgl.layers.${layerKey}`).toUpperCase();
+    const staticLabel = (labelKey: string): string => t(`components.deckgl.layerHelp.labels.${labelKey}`).toUpperCase();
+    const helpItem = (layerLabel: string, descriptionKey: string): string =>
+      `<div class="layer-help-item"><span>${layerLabel}</span> ${t(`components.deckgl.layerHelp.descriptions.${descriptionKey}`)}</div>`;
+    const helpSection = (titleKey: string, items: string[], noteKey?: string): string => `
+      <div class="layer-help-section">
+        <div class="layer-help-title">${t(`components.deckgl.layerHelp.sections.${titleKey}`)}</div>
+        ${items.join('')}
+        ${noteKey ? `<div class="layer-help-note">${t(`components.deckgl.layerHelp.notes.${noteKey}`)}</div>` : ''}
+      </div>
+    `;
+    const helpHeader = `
       <div class="layer-help-header">
-        <span>Map Layers Guide</span>
+        <span>${t('components.deckgl.layerHelp.title')}</span>
         <button class="layer-help-close">×</button>
       </div>
+    `;
+
+    const techHelpContent = `
+      ${helpHeader}
       <div class="layer-help-content">
-        <div class="layer-help-section">
-          <div class="layer-help-title">Tech Ecosystem</div>
-          <div class="layer-help-item"><span>STARTUPHUBS</span> Major startup ecosystems (SF, NYC, London, etc.)</div>
-          <div class="layer-help-item"><span>CLOUDREGIONS</span> AWS, Azure, GCP data center regions</div>
-          <div class="layer-help-item"><span>TECHHQS</span> Headquarters of major tech companies</div>
-          <div class="layer-help-item"><span>ACCELERATORS</span> Y Combinator, Techstars, 500 Startups locations</div>
-        </div>
-        <div class="layer-help-section">
-          <div class="layer-help-title">Infrastructure</div>
-          <div class="layer-help-item"><span>CABLES</span> Major undersea fiber optic cables (internet backbone)</div>
-          <div class="layer-help-item"><span>DATACENTERS</span> AI compute clusters ≥10,000 GPUs</div>
-          <div class="layer-help-item"><span>OUTAGES</span> Internet blackouts and service disruptions</div>
-        </div>
-        <div class="layer-help-section">
-          <div class="layer-help-title">Natural & Economic</div>
-          <div class="layer-help-item"><span>NATURAL</span> Earthquakes, storms, fires (may affect data centers)</div>
-          <div class="layer-help-item"><span>WEATHER</span> Severe weather alerts</div>
-          <div class="layer-help-item"><span>ECONOMIC</span> Stock exchanges & central banks</div>
-          <div class="layer-help-item"><span>COUNTRIES</span> Country name overlays</div>
-        </div>
+        ${helpSection('techEcosystem', [
+          helpItem(label('startupHubs'), 'techStartupHubs'),
+          helpItem(label('cloudRegions'), 'techCloudRegions'),
+          helpItem(label('techHQs'), 'techHQs'),
+          helpItem(label('accelerators'), 'techAccelerators'),
+        ])}
+        ${helpSection('infrastructure', [
+          helpItem(label('underseaCables'), 'infraCables'),
+          helpItem(label('aiDataCenters'), 'infraDatacenters'),
+          helpItem(label('internetOutages'), 'infraOutages'),
+        ])}
+        ${helpSection('naturalEconomic', [
+          helpItem(label('naturalEvents'), 'naturalEventsTech'),
+          helpItem(label('weatherAlerts'), 'weatherAlerts'),
+          helpItem(label('economicCenters'), 'economicCenters'),
+          helpItem(staticLabel('countries'), 'countriesOverlay'),
+        ])}
+      </div>
+    `;
+
+    const financeHelpContent = `
+      ${helpHeader}
+      <div class="layer-help-content">
+        ${helpSection('financeCore', [
+          helpItem(label('stockExchanges'), 'financeExchanges'),
+          helpItem(label('financialCenters'), 'financeCenters'),
+          helpItem(label('centralBanks'), 'financeCentralBanks'),
+          helpItem(label('commodityHubs'), 'financeCommodityHubs'),
+        ])}
+        ${helpSection('infrastructureRisk', [
+          helpItem(label('underseaCables'), 'financeCables'),
+          helpItem(label('pipelines'), 'financePipelines'),
+          helpItem(label('internetOutages'), 'financeOutages'),
+          helpItem(label('cyberThreats'), 'financeCyberThreats'),
+        ])}
+        ${helpSection('macroContext', [
+          helpItem(label('economicCenters'), 'economicCenters'),
+          helpItem(label('strategicWaterways'), 'macroWaterways'),
+          helpItem(label('weatherAlerts'), 'weatherAlertsMarket'),
+          helpItem(label('naturalEvents'), 'naturalEventsMacro'),
+        ])}
       </div>
     `;
 
     const fullHelpContent = `
-      <div class="layer-help-header">
-        <span>Map Layers Guide</span>
-        <button class="layer-help-close">×</button>
-      </div>
+      ${helpHeader}
       <div class="layer-help-content">
-        <div class="layer-help-section">
-          <div class="layer-help-title">Time Filter (top-right)</div>
-          <div class="layer-help-item"><span>1H/6H/24H</span> Filter time-based data to recent hours</div>
-          <div class="layer-help-item"><span>7D/30D/ALL</span> Show data from past week, month, or all time</div>
-          <div class="layer-help-note">Affects: Earthquakes, Weather, Protests, Outages</div>
-        </div>
-        <div class="layer-help-section">
-          <div class="layer-help-title">Geopolitical</div>
-          <div class="layer-help-item"><span>CONFLICTS</span> Active war zones (Ukraine, Gaza, etc.) with boundaries</div>
-          <div class="layer-help-item"><span>HOTSPOTS</span> Tension regions - color-coded by news activity level</div>
-          <div class="layer-help-item"><span>SANCTIONS</span> Countries under US/EU/UN economic sanctions</div>
-          <div class="layer-help-item"><span>PROTESTS</span> Civil unrest, demonstrations (time-filtered)</div>
-        </div>
-        <div class="layer-help-section">
-          <div class="layer-help-title">Military & Strategic</div>
-          <div class="layer-help-item"><span>BASES</span> US/NATO, China, Russia military installations (150+)</div>
-          <div class="layer-help-item"><span>NUCLEAR</span> Power plants, enrichment, weapons facilities</div>
-          <div class="layer-help-item"><span>IRRADIATORS</span> Industrial gamma irradiator facilities</div>
-          <div class="layer-help-item"><span>MILITARY</span> Live military aircraft and vessel tracking</div>
-        </div>
-        <div class="layer-help-section">
-          <div class="layer-help-title">Infrastructure</div>
-          <div class="layer-help-item"><span>CABLES</span> Major undersea fiber optic cables (20 backbone routes)</div>
-          <div class="layer-help-item"><span>PIPELINES</span> Oil/gas pipelines (Nord Stream, TAPI, etc.)</div>
-          <div class="layer-help-item"><span>OUTAGES</span> Internet blackouts and disruptions</div>
-          <div class="layer-help-item"><span>DATACENTERS</span> AI compute clusters ≥10,000 GPUs only</div>
-        </div>
-        <div class="layer-help-section">
-          <div class="layer-help-title">Transport</div>
-          <div class="layer-help-item"><span>SHIPPING</span> Vessels, chokepoints, 61 strategic ports</div>
-          <div class="layer-help-item"><span>DELAYS</span> Airport delays and ground stops (FAA)</div>
-        </div>
-        <div class="layer-help-section">
-          <div class="layer-help-title">Natural & Economic</div>
-          <div class="layer-help-item"><span>NATURAL</span> Earthquakes (USGS) + storms, fires, volcanoes, floods (NASA EONET)</div>
-          <div class="layer-help-item"><span>WEATHER</span> Severe weather alerts</div>
-          <div class="layer-help-item"><span>ECONOMIC</span> Stock exchanges & central banks</div>
-        </div>
-        <div class="layer-help-section">
-          <div class="layer-help-title">Labels</div>
-          <div class="layer-help-item"><span>COUNTRIES</span> Country name overlays</div>
-          <div class="layer-help-item"><span>WATERWAYS</span> Strategic chokepoint labels</div>
-        </div>
+        ${helpSection('timeFilter', [
+          helpItem(staticLabel('timeRecent'), 'timeRecent'),
+          helpItem(staticLabel('timeExtended'), 'timeExtended'),
+        ], 'timeAffects')}
+        ${helpSection('geopolitical', [
+          helpItem(label('conflictZones'), 'geoConflicts'),
+          helpItem(label('intelHotspots'), 'geoHotspots'),
+          helpItem(staticLabel('sanctions'), 'geoSanctions'),
+          helpItem(label('protests'), 'geoProtests'),
+        ])}
+        ${helpSection('militaryStrategic', [
+          helpItem(label('militaryBases'), 'militaryBases'),
+          helpItem(label('nuclearSites'), 'militaryNuclear'),
+          helpItem(label('gammaIrradiators'), 'militaryIrradiators'),
+          helpItem(label('militaryActivity'), 'militaryActivity'),
+        ])}
+        ${helpSection('infrastructure', [
+          helpItem(label('underseaCables'), 'infraCablesFull'),
+          helpItem(label('pipelines'), 'infraPipelinesFull'),
+          helpItem(label('internetOutages'), 'infraOutages'),
+          helpItem(label('aiDataCenters'), 'infraDatacentersFull'),
+        ])}
+        ${helpSection('transport', [
+          helpItem(staticLabel('shipping'), 'transportShipping'),
+          helpItem(label('flightDelays'), 'transportDelays'),
+        ])}
+        ${helpSection('naturalEconomic', [
+          helpItem(label('naturalEvents'), 'naturalEventsFull'),
+          helpItem(label('weatherAlerts'), 'weatherAlerts'),
+          helpItem(label('economicCenters'), 'economicCenters'),
+        ])}
+        ${helpSection('labels', [
+          helpItem(staticLabel('countries'), 'countriesOverlay'),
+          helpItem(label('strategicWaterways'), 'waterwaysLabels'),
+        ])}
       </div>
     `;
 
-    popup.innerHTML = SITE_VARIANT === 'tech' ? techHelpContent : fullHelpContent;
+    popup.innerHTML = SITE_VARIANT === 'tech'
+      ? techHelpContent
+      : SITE_VARIANT === 'finance'
+      ? financeHelpContent
+      : fullHelpContent;
 
     popup.querySelector('.layer-help-close')?.addEventListener('click', () => popup.remove());
 
@@ -518,20 +572,20 @@ export class MapComponent {
     if (SITE_VARIANT === 'tech') {
       // Tech variant legend
       legend.innerHTML = `
-        <div class="map-legend-item"><span class="legend-dot" style="background:#8b5cf6"></span>TECH HQ</div>
-        <div class="map-legend-item"><span class="legend-dot" style="background:#06b6d4"></span>STARTUP HUB</div>
-        <div class="map-legend-item"><span class="legend-dot" style="background:#f59e0b"></span>CLOUD REGION</div>
-        <div class="map-legend-item"><span class="map-legend-icon" style="color:#a855f7">📅</span>TECH EVENT</div>
-        <div class="map-legend-item"><span class="map-legend-icon" style="color:#4ecdc4">💾</span>DATACENTER</div>
+        <div class="map-legend-item"><span class="legend-dot" style="background:#8b5cf6"></span>${escapeHtml(t('components.deckgl.layers.techHQs').toUpperCase())}</div>
+        <div class="map-legend-item"><span class="legend-dot" style="background:#06b6d4"></span>${escapeHtml(t('components.deckgl.layers.startupHubs').toUpperCase())}</div>
+        <div class="map-legend-item"><span class="legend-dot" style="background:#f59e0b"></span>${escapeHtml(t('components.deckgl.layers.cloudRegions').toUpperCase())}</div>
+        <div class="map-legend-item"><span class="map-legend-icon" style="color:#a855f7">📅</span>${escapeHtml(t('components.deckgl.layers.techEvents').toUpperCase())}</div>
+        <div class="map-legend-item"><span class="map-legend-icon" style="color:#4ecdc4">💾</span>${escapeHtml(t('components.deckgl.layers.aiDataCenters').toUpperCase())}</div>
       `;
     } else {
       // Geopolitical variant legend
       legend.innerHTML = `
-        <div class="map-legend-item"><span class="legend-dot high"></span>HIGH ALERT</div>
-        <div class="map-legend-item"><span class="legend-dot elevated"></span>ELEVATED</div>
-        <div class="map-legend-item"><span class="legend-dot low"></span>MONITORING</div>
-        <div class="map-legend-item"><span class="map-legend-icon conflict">⚔</span>CONFLICT</div>
-        <div class="map-legend-item"><span class="map-legend-icon earthquake">●</span>EARTHQUAKE</div>
+        <div class="map-legend-item"><span class="legend-dot high"></span>${escapeHtml(t('popups.hotspot.levels.high').toUpperCase())}</div>
+        <div class="map-legend-item"><span class="legend-dot elevated"></span>${escapeHtml(t('popups.hotspot.levels.elevated').toUpperCase())}</div>
+        <div class="map-legend-item"><span class="legend-dot low"></span>${escapeHtml(t('popups.monitoring').toUpperCase())}</div>
+        <div class="map-legend-item"><span class="map-legend-icon conflict">⚔</span>${escapeHtml(t('modals.search.types.conflict').toUpperCase())}</div>
+        <div class="map-legend-item"><span class="map-legend-icon earthquake">●</span>${escapeHtml(t('modals.search.types.earthquake').toUpperCase())}</div>
         <div class="map-legend-item"><span class="map-legend-icon apt">⚠</span>APT</div>
       `;
     }
@@ -2158,7 +2212,7 @@ export class MapComponent {
           badge.className = 'cluster-badge';
           badge.textContent = String(cluster.items.length);
           div.appendChild(badge);
-          div.title = `${primaryEvent.country}: ${cluster.items.length} events`;
+          div.title = `${primaryEvent.country}: ${cluster.items.length} ${t('popups.events')}`;
         } else {
           div.title = `${primaryEvent.city || primaryEvent.country} - ${primaryEvent.eventType} (${primaryEvent.severity})`;
           if (primaryEvent.validated) {

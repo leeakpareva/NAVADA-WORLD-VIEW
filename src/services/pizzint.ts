@@ -1,5 +1,6 @@
 import type { PizzIntStatus, PizzIntLocation, PizzIntDefconLevel, GdeltTensionPair } from '@/types';
 import { createCircuitBreaker } from '@/utils';
+import { t } from '@/services/i18n';
 
 interface PizzIntApiResponse {
   success: boolean;
@@ -36,12 +37,12 @@ const gdeltBreaker = createCircuitBreaker<GdeltTensionPair[]>({
   cacheTtlMs: 10 * 60 * 1000
 });
 
-const DEFCON_THRESHOLDS: Array<{ level: PizzIntDefconLevel; min: number; label: string }> = [
-  { level: 1, min: 85, label: 'COCKED PISTOL • MAXIMUM READINESS' },
-  { level: 2, min: 70, label: 'FAST PACE • ARMED FORCES READY' },
-  { level: 3, min: 50, label: 'ROUND HOUSE • INCREASE FORCE READINESS' },
-  { level: 4, min: 25, label: 'DOUBLE TAKE • INCREASED INTELLIGENCE WATCH' },
-  { level: 5, min: 0, label: 'FADE OUT • LOWEST READINESS' },
+const DEFCON_THRESHOLDS: Array<{ level: PizzIntDefconLevel; min: number; labelKey: string }> = [
+  { level: 1, min: 85, labelKey: 'components.pizzint.defconLabels.1' },
+  { level: 2, min: 70, labelKey: 'components.pizzint.defconLabels.2' },
+  { level: 3, min: 50, labelKey: 'components.pizzint.defconLabels.3' },
+  { level: 4, min: 25, labelKey: 'components.pizzint.defconLabels.4' },
+  { level: 5, min: 0, labelKey: 'components.pizzint.defconLabels.5' },
 ];
 
 function calculateDefcon(aggregateActivity: number, activeSpikes: number): { level: PizzIntDefconLevel; label: string } {
@@ -51,10 +52,10 @@ function calculateDefcon(aggregateActivity: number, activeSpikes: number): { lev
 
   for (const threshold of DEFCON_THRESHOLDS) {
     if (adjusted >= threshold.min) {
-      return { level: threshold.level, label: threshold.label };
+      return { level: threshold.level, label: t(threshold.labelKey) };
     }
   }
-  return { level: 5, label: 'FADE OUT • LOWEST READINESS' };
+  return { level: 5, label: t('components.pizzint.defconLabels.5') };
 }
 
 function extractCoordinates(address: string): { lat?: number; lng?: number } {
@@ -67,7 +68,7 @@ function extractCoordinates(address: string): { lat?: number; lng?: number } {
 
 const defaultStatus: PizzIntStatus = {
   defconLevel: 5,
-  defconLabel: 'FADE OUT • LOWEST READINESS',
+  defconLabel: t('components.pizzint.defconLabels.5'),
   aggregateActivity: 0,
   activeSpikes: 0,
   locationsMonitored: 0,

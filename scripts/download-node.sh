@@ -14,6 +14,7 @@ Supported targets:
   - x86_64-pc-windows-msvc
   - x86_64-apple-darwin
   - aarch64-apple-darwin
+  - x86_64-unknown-linux-gnu
 
 Environment:
   NODE_VERSION   Node.js version to bundle (default: 22.14.0)
@@ -70,6 +71,9 @@ if [[ -z "${TARGET}" ]]; then
             ;;
         esac
         ;;
+      Linux)
+        TARGET="x86_64-unknown-linux-gnu"
+        ;;
       *)
         echo "Unsupported RUNNER_OS: ${RUNNER_OS}" >&2
         exit 1
@@ -90,6 +94,9 @@ if [[ -z "${TARGET}" ]]; then
             exit 1
             ;;
         esac
+        ;;
+      Linux)
+        TARGET="x86_64-unknown-linux-gnu"
         ;;
       MINGW*|MSYS*|CYGWIN*|Windows_NT)
         TARGET="x86_64-pc-windows-msvc"
@@ -118,6 +125,12 @@ case "${TARGET}" in
     ;;
   aarch64-apple-darwin)
     DIST_NAME="node-v${NODE_VERSION}-darwin-arm64"
+    ARCHIVE_NAME="${DIST_NAME}.tar.gz"
+    NODE_RELATIVE_PATH="bin/node"
+    OUTPUT_NAME="node"
+    ;;
+  x86_64-unknown-linux-gnu)
+    DIST_NAME="node-v${NODE_VERSION}-linux-x64"
     ARCHIVE_NAME="${DIST_NAME}.tar.gz"
     NODE_RELATIVE_PATH="bin/node"
     OUTPUT_NAME="node"

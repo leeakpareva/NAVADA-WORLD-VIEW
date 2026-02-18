@@ -19,16 +19,16 @@ const sign = hasFlag('sign');
 const skipNodeRuntime = hasFlag('skip-node-runtime');
 const showHelp = hasFlag('help') || hasFlag('h');
 
-const validOs = new Set(['macos', 'windows']);
+const validOs = new Set(['macos', 'windows', 'linux']);
 const validVariants = new Set(['full', 'tech']);
 
 if (showHelp) {
-  console.log('Usage: npm run desktop:package -- --os <macos|windows> --variant <full|tech> [--sign] [--skip-node-runtime]');
+  console.log('Usage: npm run desktop:package -- --os <macos|windows|linux> --variant <full|tech> [--sign] [--skip-node-runtime]');
   process.exit(0);
 }
 
 if (!validOs.has(os)) {
-  console.error('Usage: npm run desktop:package -- --os <macos|windows> --variant <full|tech> [--sign] [--skip-node-runtime]');
+  console.error('Usage: npm run desktop:package -- --os <macos|windows|linux> --variant <full|tech> [--sign] [--skip-node-runtime]');
   process.exit(1);
 }
 
@@ -37,7 +37,7 @@ if (!validVariants.has(variant)) {
   process.exit(1);
 }
 
-const bundles = os === 'macos' ? 'app,dmg' : 'nsis,msi';
+const bundles = os === 'macos' ? 'app,dmg' : os === 'linux' ? 'appimage' : 'nsis,msi';
 const env = {
   ...process.env,
   VITE_VARIANT: variant,
@@ -60,6 +60,7 @@ if (variant === 'tech') {
 const resolveNodeTarget = () => {
   if (env.NODE_TARGET) return env.NODE_TARGET;
   if (os === 'windows') return 'x86_64-pc-windows-msvc';
+  if (os === 'linux') return 'x86_64-unknown-linux-gnu';
   if (os === 'macos') {
     if (process.arch === 'arm64') return 'aarch64-apple-darwin';
     if (process.arch === 'x64') return 'x86_64-apple-darwin';

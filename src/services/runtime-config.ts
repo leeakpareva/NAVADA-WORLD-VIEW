@@ -18,7 +18,8 @@ export type RuntimeSecretKey =
   | 'OPENSKY_CLIENT_SECRET'
   | 'AISSTREAM_API_KEY'
   | 'FINNHUB_API_KEY'
-  | 'NASA_FIRMS_API_KEY';
+  | 'NASA_FIRMS_API_KEY'
+  | 'UC_DP_KEY';
 
 export type RuntimeFeatureId =
   | 'aiGroq'
@@ -419,10 +420,10 @@ export async function verifySecretWithApi(
     if (!response.ok) {
       const message = payload && typeof payload === 'object'
         ? String(
-            (payload as Record<string, unknown>).message
-            || (payload as Record<string, unknown>).error
-            || 'Secret validation failed'
-          )
+          (payload as Record<string, unknown>).message
+          || (payload as Record<string, unknown>).error
+          || 'Secret validation failed'
+        )
         : `Secret validation failed (${response.status})`;
       return { valid: false, message };
     }

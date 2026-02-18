@@ -42,15 +42,23 @@ const WORLD_APIS = new Set([
   'Cyber Threats API'
 ]);
 
-export class StatusPanel {
-  private element: HTMLElement;
+import { t } from '../services/i18n';
+import { Panel } from './Panel';
+
+export class StatusPanel extends Panel {
   private isOpen = false;
   private feeds: Map<string, FeedStatus> = new Map();
   private apis: Map<string, ApiStatus> = new Map();
-  private allowedFeeds: Set<string>;
-  private allowedApis: Set<string>;
+  private allowedFeeds!: Set<string>;
+  private allowedApis!: Set<string>;
 
   constructor() {
+    super({ id: 'status', title: t('panels.status') });
+    // Title is hidden in CSS, we use custom header
+    this.init();
+  }
+
+  private init(): void {
     // Set allowlists based on variant
     this.allowedFeeds = SITE_VARIANT === 'tech' ? TECH_FEEDS : WORLD_FEEDS;
     this.allowedApis = SITE_VARIANT === 'tech' ? TECH_APIS : WORLD_APIS;
@@ -58,30 +66,30 @@ export class StatusPanel {
     this.element = document.createElement('div');
     this.element.className = 'status-panel-container';
     this.element.innerHTML = `
-      <button class="status-panel-toggle" title="System Status">
+      <button class="status-panel-toggle" title="${t('components.status.systemStatus')}">
         <span class="status-icon">◉</span>
       </button>
       <div class="status-panel hidden">
         <div class="status-panel-header">
-          <span>System Health</span>
+          <span>${t('panels.status')}</span>
           <button class="status-panel-close">×</button>
         </div>
         <div class="status-panel-content">
           <div class="status-section">
-            <div class="status-section-title">Data Feeds</div>
+            <div class="status-section-title">${t('components.status.dataFeeds')}</div>
             <div class="feeds-list"></div>
           </div>
           <div class="status-section">
-            <div class="status-section-title">API Status</div>
+            <div class="status-section-title">${t('components.status.apiStatus')}</div>
             <div class="apis-list"></div>
           </div>
           <div class="status-section">
-            <div class="status-section-title">Storage</div>
+            <div class="status-section-title">${t('components.status.storage')}</div>
             <div class="storage-info"></div>
           </div>
         </div>
         <div class="status-panel-footer">
-          <span class="last-check">Updated just now</span>
+          <span class="last-check">${t('components.status.updatedJustNow')}</span>
         </div>
       </div>
     `;
@@ -164,9 +172,9 @@ export class StatusPanel {
     const enabledApis = [...this.apis.values()].filter(a => a.status !== 'disabled');
 
     const hasError = enabledFeeds.some(f => f.status === 'error') ||
-                     enabledApis.some(a => a.status === 'error');
+      enabledApis.some(a => a.status === 'error');
     const hasWarning = enabledFeeds.some(f => f.status === 'warning') ||
-                       enabledApis.some(a => a.status === 'warning');
+      enabledApis.some(a => a.status === 'warning');
 
     icon.className = 'status-icon';
     if (hasError) {
@@ -205,7 +213,7 @@ export class StatusPanel {
     `).join('');
 
     this.updateStorageInfo(storageInfo);
-    lastCheck.textContent = `Updated ${this.formatTime(new Date())}`;
+    lastCheck.textContent = t('components.status.updatedAt', { time: this.formatTime(new Date()) });
   }
 
   private async updateStorageInfo(container: Element): Promise<void> {
@@ -221,10 +229,10 @@ export class StatusPanel {
           </div>
         `;
       } else {
-        container.innerHTML = `<div class="status-row">Storage info unavailable</div>`;
+        container.innerHTML = `<div class="status-row">${t('components.status.storageUnavailable')}</div>`;
       }
     } catch {
-      container.innerHTML = `<div class="status-row">Storage info unavailable</div>`;
+      container.innerHTML = `<div class="status-row">${t('components.status.storageUnavailable')}</div>`;
     }
   }
 

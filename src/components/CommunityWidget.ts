@@ -1,49 +1,35 @@
-const STORAGE_KEY = 'wm-community-dismissed';
-const SHOW_DELAY_MS = 15_000;
-let scheduled = false;
+import { t } from '@/services/i18n';
 
-export function maybeShowCommunityWidget(): void {
-  if (scheduled) return;
-  if (localStorage.getItem(STORAGE_KEY)) return;
+const DISMISSED_KEY = 'wm-community-dismissed';
+const DISCUSSION_URL = 'https://github.com/koala73/worldmonitor/discussions/94';
 
-  scheduled = true;
-  setTimeout(() => {
-    if (localStorage.getItem(STORAGE_KEY)) return;
-    const el = build();
-    document.body.appendChild(el);
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => el.classList.add('cw-show'));
-    });
-  }, SHOW_DELAY_MS);
-}
+export function mountCommunityWidget(): void {
+  if (localStorage.getItem(DISMISSED_KEY) === 'true') return;
+  if (document.querySelector('.community-widget')) return;
 
-function dismiss(el: HTMLElement): void {
-  localStorage.setItem(STORAGE_KEY, '1');
-  el.classList.remove('cw-show');
-  el.addEventListener('transitionend', () => el.remove(), { once: true });
-}
-
-function close(el: HTMLElement): void {
-  el.classList.remove('cw-show');
-  el.addEventListener('transitionend', () => el.remove(), { once: true });
-}
-
-function build(): HTMLElement {
-  const wrap = document.createElement('div');
-  wrap.className = 'cw-pill-wrap';
-
-  wrap.innerHTML = `
+  const widget = document.createElement('div');
+  widget.className = 'community-widget';
+  widget.innerHTML = `
     <div class="cw-pill">
       <div class="cw-dot"></div>
-      <span class="cw-text">Join the Discussion</span>
-      <a class="cw-cta" href="https://github.com/koala73/worldmonitor/discussions" target="_blank" rel="noopener">Open</a>
-      <button class="cw-close" aria-label="Close">&times;</button>
+      <span class="cw-text">${t('components.community.joinDiscussion')}</span>
+      <a class="cw-cta" href="${DISCUSSION_URL}" target="_blank" rel="noopener">${t('components.community.openDiscussion')}</a>
+      <button class="cw-close" aria-label="${t('common.close')}">&times;</button>
     </div>
-    <button class="cw-dismiss">Don't show again</button>
+    <button class="cw-dismiss">${t('components.community.dontShowAgain')}</button>
   `;
 
-  wrap.querySelector('.cw-close')!.addEventListener('click', () => close(wrap));
-  wrap.querySelector('.cw-dismiss')!.addEventListener('click', () => dismiss(wrap));
+  const dismiss = () => {
+    widget.classList.add('cw-hiding');
+    setTimeout(() => widget.remove(), 300);
+  };
 
-  return wrap;
+  widget.querySelector('.cw-close')!.addEventListener('click', dismiss);
+
+  widget.querySelector('.cw-dismiss')!.addEventListener('click', () => {
+    localStorage.setItem(DISMISSED_KEY, 'true');
+    dismiss();
+  });
+
+  document.body.appendChild(widget);
 }

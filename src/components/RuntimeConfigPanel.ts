@@ -17,6 +17,7 @@ import {
 import { invokeTauri } from '@/services/tauri-bridge';
 import { escapeHtml } from '@/utils/sanitize';
 import { isDesktopRuntime } from '@/services/runtime';
+import { t } from '@/services/i18n';
 
 const SIGNUP_URLS: Partial<Record<RuntimeSecretKey, string>> = {
   GROQ_API_KEY: 'https://console.groq.com/keys',
@@ -34,17 +35,10 @@ const SIGNUP_URLS: Partial<Record<RuntimeSecretKey, string>> = {
   OPENSKY_CLIENT_SECRET: 'https://opensky-network.org/login?view=registration',
   FINNHUB_API_KEY: 'https://finnhub.io/register',
   NASA_FIRMS_API_KEY: 'https://firms.modaps.eosdis.nasa.gov/api/area/',
+  UC_DP_KEY: 'https://ucdp.uu.se/downloads/',
 };
 
 const MASKED_SENTINEL = '__WM_MASKED__';
-
-const SECRET_HELP_TEXT: Partial<Record<RuntimeSecretKey, string>> = {
-  URLHAUS_AUTH_KEY: 'Used for both URLhaus and ThreatFox APIs.',
-  OTX_API_KEY: 'Optional enrichment source for the cyber threat layer.',
-  ABUSEIPDB_API_KEY: 'Optional enrichment source for malicious IP reputation.',
-  FINNHUB_API_KEY: 'Real-time stock quotes and market data.',
-  NASA_FIRMS_API_KEY: 'Fire Information for Resource Management System.',
-};
 
 interface RuntimeConfigPanelOptions {
   mode?: 'full' | 'alert';
@@ -60,7 +54,7 @@ export class RuntimeConfigPanel extends Panel {
   private validationMessages = new Map<RuntimeSecretKey, string>();
 
   constructor(options: RuntimeConfigPanelOptions = {}) {
-    super({ id: 'runtime-config', title: 'Desktop Configuration', showCount: false });
+    super({ id: 'runtime-config', title: t('modals.runtimeConfig.title'), showCount: false });
     this.mode = options.mode ?? (isDesktopRuntime() ? 'alert' : 'full');
     this.buffered = options.buffered ?? false;
     this.unsubscribe = subscribeRuntimeConfig(() => this.render());
@@ -169,8 +163,8 @@ export class RuntimeConfigPanel extends Panel {
       }
 
       const alertTitle = configuredCount > 0
-        ? (missingFeatures > 0 ? 'Some features need API keys' : 'Desktop settings configured')
-        : 'Configure API keys to unlock features';
+        ? (missingFeatures > 0 ? t('modals.runtimeConfig.alertTitle.some') : t('modals.runtimeConfig.alertTitle.configured'))
+        : t('modals.runtimeConfig.alertTitle.needsKeys');
       const alertClass = missingFeatures > 0 ? 'warn' : 'ok';
 
       this.show();
@@ -178,10 +172,10 @@ export class RuntimeConfigPanel extends Panel {
         <section class="runtime-alert runtime-alert-${alertClass}">
           <h3>${alertTitle}</h3>
           <p>
-            ${availableFeatures}/${totalFeatures} features available${configuredCount > 0 ? ` · ${configuredCount} secrets configured` : ''}.
+            ${availableFeatures}/${totalFeatures} ${t('modals.runtimeConfig.summary.available')}${configuredCount > 0 ? ` · ${configuredCount} ${t('modals.runtimeConfig.summary.secrets')}` : ''}.
           </p>
           <button type="button" class="runtime-open-settings-btn" data-open-settings>
-            Open Settings
+            ${t('modals.runtimeConfig.openSettings')}
           </button>
         </section>
       `;
@@ -191,7 +185,7 @@ export class RuntimeConfigPanel extends Panel {
 
     this.content.innerHTML = `
       <div class="runtime-config-summary">
-        ${desktop ? 'Desktop mode' : 'Web mode (read-only, server-managed credentials)'} · ${Object.keys(snapshot.secrets).length} local secrets configured · ${RUNTIME_FEATURES.filter(f => isFeatureAvailable(f.id)).length}/${RUNTIME_FEATURES.length} features available
+        ${desktop ? t('modals.runtimeConfig.summary.desktop') : t('modals.runtimeConfig.summary.web')} · ${Object.keys(snapshot.secrets).length} ${t('modals.runtimeConfig.summary.secrets')} · ${RUNTIME_FEATURES.filter(f => isFeatureAvailable(f.id)).length}/${RUNTIME_FEATURES.length} ${t('modals.runtimeConfig.summary.available')}
       </div>
       <div class="runtime-config-list">
         ${RUNTIME_FEATURES.map(feature => this.renderFeature(feature)).join('')}
@@ -209,7 +203,7 @@ export class RuntimeConfigPanel extends Panel {
       (k) => getSecretState(k).valid || (this.pendingSecrets.has(k) && this.validatedKeys.get(k) !== false)
     );
     const pillClass = available ? 'ok' : allStaged ? 'staged' : 'warn';
-    const pillLabel = available ? 'Ready' : allStaged ? 'Staged' : 'Needs Keys';
+    const pillLabel = available ? t('modals.runtimeConfig.status.ready') : allStaged ? t('modals.runtimeConfig.status.staged') : t('modals.runtimeConfig.status.needsKeys');
     const secrets = effectiveSecrets.map((key) => this.renderSecretRow(key)).join('');
     const desktop = isDesktopRuntime();
     const fallbackHtml = available || allStaged ? '' : `<p class="runtime-feature-fallback fallback">${escapeHtml(feature.fallback)}</p>`;
@@ -234,13 +228,15 @@ export class RuntimeConfigPanel extends Panel {
     const pending = this.pendingSecrets.has(key);
     const pendingValid = pending ? this.validatedKeys.get(key) : undefined;
     const status = pending
-      ? (pendingValid === false ? 'Invalid' : 'Staged')
-      : !state.present ? 'Missing' : state.valid ? `Valid (${state.source})` : 'Looks invalid';
+      ? (pendingValid === false ? t('modals.runtimeConfig.status.invalid') : t('modals.runtimeConfig.status.staged'))
+      : !state.present ? t('modals.runtimeConfig.status.missing') : state.valid ? `${t('modals.runtimeConfig.status.valid')} (${state.source})` : t('modals.runtimeConfig.status.looksInvalid');
     const statusClass = pending
       ? (pendingValid === false ? 'warn' : 'staged')
       : state.valid ? 'ok' : 'warn';
     const signupUrl = SIGNUP_URLS[key];
-    const helpText = SECRET_HELP_TEXT[key];
+    const helpKey = `modals.runtimeConfig.help.${key}`;
+    const helpRaw = t(helpKey);
+    const helpText = helpRaw !== helpKey ? helpRaw : '';
     const linkHtml = signupUrl
       ? ` <a href="#" data-signup-url="${signupUrl}" class="runtime-secret-link" title="Get API key">&#x2197;</a>`
       : '';
@@ -257,7 +253,7 @@ export class RuntimeConfigPanel extends Panel {
         <span class="runtime-secret-status ${statusClass}">${escapeHtml(status)}</span>
         <span class="runtime-secret-check ${checkClass}">&#x2713;</span>
         ${helpText ? `<div class="runtime-secret-meta">${escapeHtml(helpText)}</div>` : ''}
-        <input type="password" data-secret="${key}" placeholder="${pending ? 'Staged (save with OK)' : 'Set secret'}" autocomplete="off" ${isDesktopRuntime() ? '' : 'disabled'} class="${inputClass}" ${pending ? `value="${MASKED_SENTINEL}"` : ''}>
+        <input type="password" data-secret="${key}" placeholder="${pending ? t('modals.runtimeConfig.placeholder.staged') : t('modals.runtimeConfig.placeholder.setSecret')}" autocomplete="off" ${isDesktopRuntime() ? '' : 'disabled'} class="${inputClass}" ${pending ? `value="${MASKED_SENTINEL}"` : ''}>
         ${hintText ? `<span class="runtime-secret-hint">${escapeHtml(hintText)}</span>` : ''}
       </div>
     `;
@@ -338,7 +334,7 @@ export class RuntimeConfigPanel extends Panel {
           }
           input.type = 'password';
           input.value = MASKED_SENTINEL;
-          input.placeholder = 'Staged (save with OK)';
+          input.placeholder = t('modals.runtimeConfig.placeholder.staged');
           const row = input.closest('.runtime-secret-row');
           const check = row?.querySelector('.runtime-secret-check');
           input.classList.remove('valid-staged', 'invalid');

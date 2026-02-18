@@ -1,5 +1,6 @@
 import { Panel } from './Panel';
 import { escapeHtml } from '@/utils/sanitize';
+import { t } from '@/services/i18n';
 
 interface MacroSignalData {
   timestamp: string;
@@ -66,10 +67,11 @@ export class MacroSignalsPanel extends Panel {
   private data: MacroSignalData | null = null;
   private loading = true;
   private error: string | null = null;
+
   private refreshInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
-    super({ id: 'macro-signals', title: 'Market Radar', showCount: false });
+    super({ id: 'macro-signals', title: t('panels.macroSignals'), showCount: false });
     void this.fetchData();
     this.refreshInterval = setInterval(() => this.fetchData(), 3 * 60000);
   }
@@ -97,17 +99,17 @@ export class MacroSignalsPanel extends Panel {
 
   private renderPanel(): void {
     if (this.loading) {
-      this.showLoading('Computing signals...');
+      this.showLoading(t('common.computingSignals'));
       return;
     }
 
     if (this.error || !this.data) {
-      this.showError(this.error || 'No data');
+      this.showError(this.error || t('common.noDataShort'));
       return;
     }
 
     if (this.data.unavailable) {
-      this.showError('Market data source temporarily unavailable — will retry automatically');
+      this.showError(t('common.upstreamUnavailable'));
       return;
     }
 

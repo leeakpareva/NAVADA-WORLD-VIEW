@@ -3,6 +3,7 @@ import { escapeHtml } from '@/utils/sanitize';
 import { fetchCachedTheaterPosture, type CachedTheaterPosture } from '@/services/cached-theater-posture';
 import { fetchMilitaryVessels, isMilitaryVesselTrackingConfigured } from '@/services/military-vessels';
 import { recalcPostureWithVessels, type TheaterPostureSummary } from '@/services/military-surge';
+import { t } from '../services/i18n';
 
 export class StrategicPosturePanel extends Panel {
   private postures: TheaterPostureSummary[] = [];
@@ -17,17 +18,10 @@ export class StrategicPosturePanel extends Panel {
   constructor() {
     super({
       id: 'strategic-posture',
-      title: 'AI Strategic Posture',
+      title: t('panels.strategicPosture'),
       showCount: false,
       trackActivity: true,
-      infoTooltip: `<strong>Methodology</strong>
-        <p>Aggregates military aircraft and naval vessels by theater.</p>
-        <ul>
-          <li><strong>Normal:</strong> Baseline activity</li>
-          <li><strong>Elevated:</strong> Above threshold (50+ aircraft)</li>
-          <li><strong>Critical:</strong> High concentration (100+ aircraft)</li>
-        </ul>
-        <p><strong>Strike Capable:</strong> Tankers + AWACS + Fighters present in sufficient numbers for sustained operations.</p>`,
+      infoTooltip: t('components.strategicPosture.infoTooltip'),
     });
     this.init();
   }
@@ -58,37 +52,37 @@ export class StrategicPosturePanel extends Panel {
   public override showLoading(): void {
     this.loadingStartTime = Date.now();
     this.setContent(`
-      <div class="posture-panel">
-        <div class="posture-loading">
-          <div class="posture-loading-radar">
-            <div class="posture-radar-sweep"></div>
-            <div class="posture-radar-dot"></div>
-          </div>
-          <div class="posture-loading-title">Scanning Theaters</div>
-          <div class="posture-loading-stages">
-            <div class="posture-stage active">
-              <span class="posture-stage-dot"></span>
-              <span>Aircraft positions</span>
+        < div class="posture-panel" >
+          <div class="posture-loading" >
+            <div class="posture-loading-radar" >
+              <div class="posture-radar-sweep" > </div>
+                < div class="posture-radar-dot" > </div>
+                  </div>
+                  < div class="posture-loading-title" > Scanning Theaters </div>
+                    < div class="posture-loading-stages" >
+                      <div class="posture-stage active" >
+                        <span class="posture-stage-dot" > </span>
+                          < span > Aircraft positions </span>
+                            </div>
+                            < div class="posture-stage pending" >
+                              <span class="posture-stage-dot" > </span>
+                                < span > Naval vessels </span>
+                                  </div>
+                                  < div class="posture-stage pending" >
+                                    <span class="posture-stage-dot" > </span>
+                                      < span > Theater analysis </span>
+                                        </div>
+                                        </div>
+                                        < div class="posture-loading-tip" >
+                                          Connecting to live ADS - B & amp; AIS streams...
+    </div>
+      < div class="posture-loading-elapsed" > Elapsed: 0s </div>
+        < div class="posture-loading-note" >
+          Initial load takes 30 - 60 seconds as tracking data accumulates
             </div>
-            <div class="posture-stage pending">
-              <span class="posture-stage-dot"></span>
-              <span>Naval vessels</span>
             </div>
-            <div class="posture-stage pending">
-              <span class="posture-stage-dot"></span>
-              <span>Theater analysis</span>
             </div>
-          </div>
-          <div class="posture-loading-tip">
-            Connecting to live ADS-B &amp; AIS streams...
-          </div>
-          <div class="posture-loading-elapsed">Elapsed: 0s</div>
-          <div class="posture-loading-note">
-            Initial load takes 30-60 seconds as tracking data accumulates
-          </div>
-        </div>
-      </div>
-    `);
+              `);
     this.startLoadingTimer();
   }
 
@@ -98,7 +92,7 @@ export class StrategicPosturePanel extends Panel {
       const elapsed = Math.floor((Date.now() - this.loadingStartTime) / 1000);
       const elapsedEl = this.content.querySelector('.posture-loading-elapsed');
       if (elapsedEl) {
-        elapsedEl.textContent = `Elapsed: ${elapsed}s`;
+        elapsedEl.textContent = t('components.strategicPosture.elapsed', { elapsed: String(elapsed) });
       }
     }, 1000);
   }
@@ -307,49 +301,49 @@ export class StrategicPosturePanel extends Panel {
   private showNoData(): void {
     this.stopLoadingTimer();
     this.setContent(`
-      <div class="posture-panel">
-        <div class="posture-no-data">
-          <div class="posture-no-data-icon pulse">📡</div>
-          <div class="posture-no-data-title">Acquiring Data</div>
-          <div class="posture-no-data-desc">
-            Connecting to ADS-B network for military flight data.
-            This may take 30-60 seconds on first load.
+      < div class="posture-panel" >
+        <div class="posture-no-data" >
+          <div class="posture-no-data-icon pulse" >📡</div>
+            < div class="posture-no-data-title" > Acquiring Data </div>
+              < div class="posture-no-data-desc" >
+                Connecting to ADS - B network for military flight data.
+            This may take 30 - 60 seconds on first load.
           </div>
-          <div class="posture-data-sources">
-            <div class="posture-source">
-              <span class="posture-source-icon connecting">✈️</span>
-              <span>OpenSky ADS-B</span>
-            </div>
-            <div class="posture-source">
-              <span class="posture-source-icon waiting">🚢</span>
-              <span>AIS Vessel Stream</span>
-            </div>
-          </div>
-          <button class="posture-retry-btn">↻ Retry Now</button>
-        </div>
-      </div>
-    `);
+      < div class="posture-data-sources" >
+        <div class="posture-source" >
+          <span class="posture-source-icon connecting" >✈️</span>
+            < span > OpenSky ADS - B </span>
+              </div>
+              < div class="posture-source" >
+                <span class="posture-source-icon waiting" >🚢</span>
+                  < span > AIS Vessel Stream </span>
+                    </div>
+                    </div>
+                    < button class="posture-retry-btn" >↻ Retry Now </button>
+                      </div>
+                      </div>
+                        `);
     this.content.querySelector('.posture-retry-btn')?.addEventListener('click', () => this.refresh());
   }
 
   private showFetchError(): void {
     this.stopLoadingTimer();
     this.setContent(`
-      <div class="posture-panel">
-        <div class="posture-no-data">
-          <div class="posture-no-data-icon">⚠️</div>
-          <div class="posture-no-data-title">Feed Rate Limited</div>
-          <div class="posture-no-data-desc">
-            OpenSky API has request limits. The panel will automatically
-            retry in a few minutes, or you can try again now.
+                      < div class="posture-panel" >
+                        <div class="posture-no-data" >
+                          <div class="posture-no-data-icon" >⚠️</div>
+                            < div class="posture-no-data-title" > Feed Rate Limited </div>
+                              < div class="posture-no-data-desc" >
+                                OpenSky API has request limits.The panel will automatically
+    retry in a few minutes, or you can try again now.
           </div>
-          <div class="posture-error-hint">
-            <strong>Tip:</strong> Peak hours (UTC 12:00-20:00) often see higher limits.
+      < div class="posture-error-hint" >
+        <strong>Tip: </strong> Peak hours (UTC 12:00-20:00) often see higher limits.
           </div>
-          <button class="posture-retry-btn">↻ Try Again</button>
-        </div>
-      </div>
-    `);
+          < button class="posture-retry-btn" >↻ Try Again </button>
+            </div>
+            </div>
+              `);
     this.content.querySelector('.posture-retry-btn')?.addEventListener('click', () => this.refresh());
   }
 
@@ -367,7 +361,7 @@ export class StrategicPosturePanel extends Panel {
   private getTrendIcon(trend: string, change: number): string {
     switch (trend) {
       case 'increasing':
-        return `<span class="posture-trend trend-up">↗ +${change}%</span>`;
+        return `< span class="posture-trend trend-up" >↗ +${change}% </span>`;
       case 'decreasing':
         return `<span class="posture-trend trend-down">↘ ${change}%</span>`;
       default:
@@ -385,7 +379,7 @@ export class StrategicPosturePanel extends Panel {
       if (p.totalVessels > 0) chips.push(`<span class="posture-chip naval">⚓ ${p.totalVessels}</span>`);
 
       return `
-        <div class="posture-theater posture-compact" data-lat="${p.centerLat}" data-lon="${p.centerLon}" title="Click to view ${escapeHtml(p.theaterName)} on map">
+        <div class="posture-theater posture-compact" data-lat="${p.centerLat}" data-lon="${p.centerLon}" title="${t('components.strategicPosture.clickToView', { name: escapeHtml(p.theaterName) })}">
           <span class="posture-name">${escapeHtml(p.shortName)}</span>
           <div class="posture-chips">${chips.join('')}</div>
           ${this.getPostureBadge(p.postureLevel)}
@@ -395,35 +389,35 @@ export class StrategicPosturePanel extends Panel {
 
     // Build compact stat chips for expanded view
     const airChips: string[] = [];
-    if (p.fighters > 0) airChips.push(`<span class="posture-stat" title="Fighters">✈️ ${p.fighters}</span>`);
-    if (p.tankers > 0) airChips.push(`<span class="posture-stat" title="Tankers">⛽ ${p.tankers}</span>`);
-    if (p.awacs > 0) airChips.push(`<span class="posture-stat" title="AWACS">📡 ${p.awacs}</span>`);
-    if (p.reconnaissance > 0) airChips.push(`<span class="posture-stat" title="Recon">🔍 ${p.reconnaissance}</span>`);
-    if (p.transport > 0) airChips.push(`<span class="posture-stat" title="Transport">📦 ${p.transport}</span>`);
-    if (p.bombers > 0) airChips.push(`<span class="posture-stat" title="Bombers">💣 ${p.bombers}</span>`);
-    if (p.drones > 0) airChips.push(`<span class="posture-stat" title="Drones">🛸 ${p.drones}</span>`);
+    if (p.fighters > 0) airChips.push(`<span class="posture-stat" title="${t('components.strategicPosture.units.fighters')}">✈️ ${p.fighters}</span>`);
+    if (p.tankers > 0) airChips.push(`<span class="posture-stat" title="${t('components.strategicPosture.units.tankers')}">⛽ ${p.tankers}</span>`);
+    if (p.awacs > 0) airChips.push(`<span class="posture-stat" title="${t('components.strategicPosture.units.awacs')}">📡 ${p.awacs}</span>`);
+    if (p.reconnaissance > 0) airChips.push(`<span class="posture-stat" title="${t('components.strategicPosture.units.recon')}">🔍 ${p.reconnaissance}</span>`);
+    if (p.transport > 0) airChips.push(`<span class="posture-stat" title="${t('components.strategicPosture.units.transport')}">📦 ${p.transport}</span>`);
+    if (p.bombers > 0) airChips.push(`<span class="posture-stat" title="${t('components.strategicPosture.units.bombers')}">💣 ${p.bombers}</span>`);
+    if (p.drones > 0) airChips.push(`<span class="posture-stat" title="${t('components.strategicPosture.units.drones')}">🛸 ${p.drones}</span>`);
     // Fallback: show total aircraft if no typed breakdown available
     if (airChips.length === 0 && p.totalAircraft > 0) {
-      airChips.push(`<span class="posture-stat" title="Aircraft">✈️ ${p.totalAircraft}</span>`);
+      airChips.push(`<span class="posture-stat" title="${t('components.strategicPosture.units.aircraft')}">✈️ ${p.totalAircraft}</span>`);
     }
 
     const navalChips: string[] = [];
-    if (p.carriers > 0) navalChips.push(`<span class="posture-stat carrier" title="Carriers">🚢 ${p.carriers}</span>`);
-    if (p.destroyers > 0) navalChips.push(`<span class="posture-stat" title="Destroyers">⚓ ${p.destroyers}</span>`);
-    if (p.frigates > 0) navalChips.push(`<span class="posture-stat" title="Frigates">🛥️ ${p.frigates}</span>`);
-    if (p.submarines > 0) navalChips.push(`<span class="posture-stat" title="Submarines">🦈 ${p.submarines}</span>`);
-    if (p.patrol > 0) navalChips.push(`<span class="posture-stat" title="Patrol">🚤 ${p.patrol}</span>`);
-    if (p.auxiliaryVessels > 0) navalChips.push(`<span class="posture-stat" title="Auxiliary">⚓ ${p.auxiliaryVessels}</span>`);
+    if (p.carriers > 0) navalChips.push(`<span class="posture-stat carrier" title="${t('components.strategicPosture.units.carriers')}">🚢 ${p.carriers}</span>`);
+    if (p.destroyers > 0) navalChips.push(`<span class="posture-stat" title="${t('components.strategicPosture.units.destroyers')}">⚓ ${p.destroyers}</span>`);
+    if (p.frigates > 0) navalChips.push(`<span class="posture-stat" title="${t('components.strategicPosture.units.frigates')}">🛥️ ${p.frigates}</span>`);
+    if (p.submarines > 0) navalChips.push(`<span class="posture-stat" title="${t('components.strategicPosture.units.submarines')}">🦈 ${p.submarines}</span>`);
+    if (p.patrol > 0) navalChips.push(`<span class="posture-stat" title="${t('components.strategicPosture.units.patrol')}">🚤 ${p.patrol}</span>`);
+    if (p.auxiliaryVessels > 0) navalChips.push(`<span class="posture-stat" title="${t('components.strategicPosture.units.auxiliary')}">⚓ ${p.auxiliaryVessels}</span>`);
     // Fallback: show total vessels if no typed breakdown available
     if (navalChips.length === 0 && p.totalVessels > 0) {
-      navalChips.push(`<span class="posture-stat" title="Naval Vessels">⚓ ${p.totalVessels}</span>`);
+      navalChips.push(`<span class="posture-stat" title="${t('components.strategicPosture.units.navalVessels')}">⚓ ${p.totalVessels}</span>`);
     }
 
     const hasAir = airChips.length > 0;
     const hasNaval = navalChips.length > 0;
 
     return `
-      <div class="posture-theater posture-expanded ${p.postureLevel}" data-lat="${p.centerLat}" data-lon="${p.centerLon}" title="Click to view on map">
+      <div class="posture-theater posture-expanded ${p.postureLevel}" data-lat="${p.centerLat}" data-lon="${p.centerLon}" title="${t('components.strategicPosture.clickToViewMap')}">
         <div class="posture-theater-header">
           <span class="posture-name">${escapeHtml(p.theaterName)}</span>
           ${this.getPostureBadge(p.postureLevel)}
@@ -465,7 +459,7 @@ export class StrategicPosturePanel extends Panel {
 
         <div class="posture-footer">
           <span class="posture-updated">${this.isStale ? '⚠️ ' : ''}Updated: ${updatedTime}</span>
-          <button class="posture-refresh-btn" title="Refresh">↻</button>
+          <button class="posture-refresh-btn" title="${t('components.strategicPosture.refresh')}">↻</button>
         </div>
       </div>
     `;

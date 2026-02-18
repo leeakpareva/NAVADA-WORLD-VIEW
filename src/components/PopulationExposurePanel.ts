@@ -2,6 +2,7 @@ import { Panel } from './Panel';
 import { escapeHtml } from '@/utils/sanitize';
 import type { PopulationExposure } from '@/types';
 import { formatPopulation } from '@/services/population-exposure';
+import { t } from '@/services/i18n';
 
 export class PopulationExposurePanel extends Panel {
   private exposures: PopulationExposure[] = [];
@@ -9,20 +10,12 @@ export class PopulationExposurePanel extends Panel {
   constructor() {
     super({
       id: 'population-exposure',
-      title: 'Population Exposure',
+      title: t('panels.populationExposure'),
       showCount: true,
       trackActivity: true,
-      infoTooltip: `<strong>Population Exposure Estimates</strong>
-        Estimated population within event impact radius.
-        Based on WorldPop country density data.
-        <ul>
-          <li>Conflict: 50km radius</li>
-          <li>Earthquake: 100km radius</li>
-          <li>Flood: 100km radius</li>
-          <li>Wildfire: 30km radius</li>
-        </ul>`,
+      infoTooltip: t('components.populationExposure.infoTooltip'),
     });
-    this.showLoading('Calculating exposure');
+    this.showLoading(t('common.calculatingExposure'));
   }
 
   public setExposures(exposures: PopulationExposure[]): void {
@@ -33,7 +26,7 @@ export class PopulationExposurePanel extends Panel {
 
   private renderContent(): void {
     if (this.exposures.length === 0) {
-      this.setContent('<div class="panel-empty">No exposure data available</div>');
+      this.setContent(`<div class="panel-empty">${t('common.noDataAvailable')}</div>`);
       return;
     }
 
@@ -45,8 +38,8 @@ export class PopulationExposurePanel extends Panel {
       return `<div class="popexp-card">
         <div class="popexp-card-name">${typeIcon} ${escapeHtml(e.eventName)}</div>
         <div class="popexp-card-meta">
-          <span class="popexp-card-pop${popClass}">${formatPopulation(e.exposedPopulation)} affected</span>
-          <span class="popexp-card-radius">${e.exposureRadiusKm}km radius</span>
+          <span class="popexp-card-pop${popClass}">${t('components.populationExposure.affectedCount', { count: formatPopulation(e.exposedPopulation) })}</span>
+          <span class="popexp-card-radius">${t('components.populationExposure.radiusKm', { km: String(e.exposureRadiusKm) })}</span>
         </div>
       </div>`;
     }).join('');
@@ -54,7 +47,7 @@ export class PopulationExposurePanel extends Panel {
     this.setContent(`
       <div class="popexp-panel-content">
         <div class="popexp-summary">
-          <span class="popexp-label">Total Affected</span>
+          <span class="popexp-label">${t('components.populationExposure.totalAffected')}</span>
           <span class="popexp-total">${formatPopulation(totalAffected)}</span>
         </div>
         <div class="popexp-list">${cards}</div>

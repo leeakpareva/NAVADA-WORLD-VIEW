@@ -1,6 +1,7 @@
 import * as d3 from 'd3';
 import { escapeHtml } from '@/utils/sanitize';
 import { getCSSColor } from '@/utils';
+import { t } from '@/services/i18n';
 
 export interface TimelineEvent {
   timestamp: number;
@@ -196,7 +197,7 @@ export class CountryTimeline {
       .attr('text-anchor', 'middle')
       .attr('fill', getCSSColor('--text-muted'))
       .attr('font-size', '9px')
-      .text('now');
+      .text(t('components.countryTimeline.now'));
   }
 
   private drawEmptyLaneLabels(
@@ -218,7 +219,7 @@ export class CountryTimeline {
       .attr('fill', getCSSColor('--text-ghost'))
       .attr('font-size', '10px')
       .attr('font-style', 'italic')
-      .text('No events in 7 days');
+      .text(t('components.countryTimeline.noEventsIn7Days'));
   }
 
   private drawEvents(

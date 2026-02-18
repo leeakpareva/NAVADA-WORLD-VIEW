@@ -1,4 +1,5 @@
 import type { NewsItem, ClusteredEvent, MarketData, PredictionMarket } from '@/types';
+import { t } from '@/services/i18n';
 
 type ExportFormat = 'json' | 'csv';
 
@@ -149,10 +150,10 @@ export class ExportPanel {
     this.element = document.createElement('div');
     this.element.className = 'export-panel-container';
     this.element.innerHTML = `
-      <button class="export-btn" title="Export Data">⬇</button>
+      <button class="export-btn" title="${t('common.exportData')}">⬇</button>
       <div class="export-menu hidden">
-        <button class="export-option" data-format="csv">Export CSV</button>
-        <button class="export-option" data-format="json">Export JSON</button>
+        <button class="export-option" data-format="csv">${t('common.exportCsv')}</button>
+        <button class="export-option" data-format="json">${t('common.exportJson')}</button>
       </div>
     `;
 

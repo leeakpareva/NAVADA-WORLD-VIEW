@@ -2,6 +2,7 @@ import { Panel } from './Panel';
 import { escapeHtml } from '@/utils/sanitize';
 import type { UnhcrSummary, CountryDisplacement } from '@/types';
 import { formatPopulation } from '@/services/unhcr';
+import { t } from '@/services/i18n';
 
 type DisplacementTab = 'origins' | 'hosts';
 
@@ -13,19 +14,12 @@ export class DisplacementPanel extends Panel {
   constructor() {
     super({
       id: 'displacement',
-      title: 'UNHCR Displacement',
+      title: t('panels.displacement'),
       showCount: true,
       trackActivity: true,
-      infoTooltip: `<strong>UNHCR Displacement Data</strong>
-        Global refugee, asylum seeker, and IDP counts from UNHCR.
-        <ul>
-          <li><strong>Origins</strong>: Countries people flee FROM</li>
-          <li><strong>Hosts</strong>: Countries hosting refugees</li>
-          <li>Crisis badges: >1M | High: >500K displaced</li>
-        </ul>
-        Data updates yearly. CC BY 4.0 license.`,
+      infoTooltip: t('components.displacement.infoTooltip'),
     });
-    this.showLoading('Loading displacement data');
+    this.showLoading(t('common.loadingDisplacement'));
   }
 
   public setCountryClickHandler(handler: (lat: number, lon: number) => void): void {
@@ -44,10 +38,10 @@ export class DisplacementPanel extends Panel {
     const g = this.data.globalTotals;
 
     const stats = [
-      { label: 'Refugees', value: formatPopulation(g.refugees), cls: 'disp-stat-refugees' },
-      { label: 'Asylum Seekers', value: formatPopulation(g.asylumSeekers), cls: 'disp-stat-asylum' },
-      { label: 'IDPs', value: formatPopulation(g.idps), cls: 'disp-stat-idps' },
-      { label: 'Total', value: formatPopulation(g.total), cls: 'disp-stat-total' },
+      { label: t('components.displacement.refugees'), value: formatPopulation(g.refugees), cls: 'disp-stat-refugees' },
+      { label: t('components.displacement.asylumSeekers'), value: formatPopulation(g.asylumSeekers), cls: 'disp-stat-asylum' },
+      { label: t('components.displacement.idps'), value: formatPopulation(g.idps), cls: 'disp-stat-idps' },
+      { label: t('components.displacement.total'), value: formatPopulation(g.total), cls: 'disp-stat-total' },
     ];
 
     const statsHtml = stats.map(s =>
@@ -59,8 +53,8 @@ export class DisplacementPanel extends Panel {
 
     const tabsHtml = `
       <div class="disp-tabs">
-        <button class="disp-tab ${this.activeTab === 'origins' ? 'disp-tab-active' : ''}" data-tab="origins">Origins</button>
-        <button class="disp-tab ${this.activeTab === 'hosts' ? 'disp-tab-active' : ''}" data-tab="hosts">Hosts</button>
+        <button class="disp-tab ${this.activeTab === 'origins' ? 'disp-tab-active' : ''}" data-tab="origins">${t('components.displacement.origins')}</button>
+        <button class="disp-tab ${this.activeTab === 'hosts' ? 'disp-tab-active' : ''}" data-tab="hosts">${t('components.displacement.hosts')}</button>
       </div>
     `;
 
@@ -79,7 +73,7 @@ export class DisplacementPanel extends Panel {
     let tableHtml: string;
 
     if (displayed.length === 0) {
-      tableHtml = '<div class="panel-empty">No data</div>';
+      tableHtml = `<div class="panel-empty">${t('common.noDataShort')}</div>`;
     } else {
       const rows = displayed.map(c => {
         const hostTotal = c.hostTotal || 0;
@@ -87,12 +81,12 @@ export class DisplacementPanel extends Panel {
         const total = this.activeTab === 'origins' ? c.totalDisplaced : hostTotal;
         const badgeCls = total >= 1_000_000 ? 'disp-crisis'
           : total >= 500_000 ? 'disp-high'
-          : total >= 100_000 ? 'disp-elevated'
-          : '';
-        const badgeLabel = total >= 1_000_000 ? 'CRISIS'
-          : total >= 500_000 ? 'HIGH'
-          : total >= 100_000 ? 'ELEVATED'
-          : '';
+            : total >= 100_000 ? 'disp-elevated'
+              : '';
+        const badgeLabel = total >= 1_000_000 ? t('components.displacement.badges.crisis')
+          : total >= 500_000 ? t('components.displacement.badges.high')
+            : total >= 100_000 ? t('components.displacement.badges.elevated')
+              : '';
         const badgeHtml = badgeLabel
           ? `<span class="disp-badge ${badgeCls}">${badgeLabel}</span>`
           : '';
@@ -108,9 +102,9 @@ export class DisplacementPanel extends Panel {
         <table class="disp-table">
           <thead>
             <tr>
-              <th>Country</th>
-              <th>Status</th>
-              <th>Count</th>
+              <th>${t('components.displacement.country')}</th>
+              <th>${t('components.displacement.status')}</th>
+              <th>${t('components.displacement.count')}</th>
             </tr>
           </thead>
           <tbody>${rows}</tbody>

@@ -2,6 +2,7 @@ import { Panel } from './Panel';
 import { escapeHtml } from '@/utils/sanitize';
 import type { ClimateAnomaly } from '@/types';
 import { getSeverityIcon, formatDelta } from '@/services/climate';
+import { t } from '@/services/i18n';
 
 export class ClimateAnomalyPanel extends Panel {
   private anomalies: ClimateAnomaly[] = [];
@@ -10,19 +11,12 @@ export class ClimateAnomalyPanel extends Panel {
   constructor() {
     super({
       id: 'climate',
-      title: 'Climate Anomalies',
+      title: t('panels.climate'),
       showCount: true,
       trackActivity: true,
-      infoTooltip: `<strong>Climate Anomaly Monitor</strong>
-        Temperature and precipitation deviations from 30-day baseline.
-        Data from Open-Meteo (ERA5 reanalysis).
-        <ul>
-          <li><strong>Extreme</strong>: >5°C or >80mm/day deviation</li>
-          <li><strong>Moderate</strong>: >3°C or >40mm/day deviation</li>
-        </ul>
-        Monitors 15 conflict/disaster-prone zones.`,
+      infoTooltip: t('components.climate.infoTooltip'),
     });
-    this.showLoading('Loading climate data');
+    this.showLoading(t('common.loadingClimateData'));
   }
 
   public setZoneClickHandler(handler: (lat: number, lon: number) => void): void {
@@ -37,7 +31,7 @@ export class ClimateAnomalyPanel extends Panel {
 
   private renderContent(): void {
     if (this.anomalies.length === 0) {
-      this.setContent('<div class="panel-empty">No significant anomalies detected</div>');
+      this.setContent(`<div class="panel-empty">${t('components.climate.noAnomalies')}</div>`);
       return;
     }
 
@@ -57,7 +51,7 @@ export class ClimateAnomalyPanel extends Panel {
         <td class="climate-zone"><span class="climate-icon">${icon}</span>${escapeHtml(a.zone)}</td>
         <td class="climate-num ${tempClass}">${formatDelta(a.tempDelta, '°C')}</td>
         <td class="climate-num ${precipClass}">${formatDelta(a.precipDelta, 'mm')}</td>
-        <td><span class="climate-badge ${sevClass}">${a.severity.toUpperCase()}</span></td>
+        <td><span class="climate-badge ${sevClass}">${t(`components.climate.severity.${a.severity}`)}</span></td>
       </tr>`;
     }).join('');
 
@@ -66,10 +60,10 @@ export class ClimateAnomalyPanel extends Panel {
         <table class="climate-table">
           <thead>
             <tr>
-              <th>Zone</th>
-              <th>Temp</th>
-              <th>Precip</th>
-              <th>Severity</th>
+              <th>${t('components.climate.zone')}</th>
+              <th>${t('components.climate.temp')}</th>
+              <th>${t('components.climate.precip')}</th>
+              <th>${t('components.climate.severityLabel')}</th>
             </tr>
           </thead>
           <tbody>${rows}</tbody>

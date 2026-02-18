@@ -1,4 +1,5 @@
 import { Panel } from './Panel';
+import { t } from '@/services/i18n';
 import { escapeHtml } from '@/utils/sanitize';
 
 interface ETFData {
@@ -53,7 +54,7 @@ export class ETFFlowsPanel extends Panel {
   private refreshInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
-    super({ id: 'etf-flows', title: 'BTC ETF Tracker', showCount: false });
+    super({ id: 'etf-flows', title: t('panels.etfFlows'), showCount: false });
     void this.fetchData();
     this.refreshInterval = setInterval(() => this.fetchData(), 3 * 60000);
   }
@@ -85,17 +86,17 @@ export class ETFFlowsPanel extends Panel {
 
   private renderPanel(): void {
     if (this.loading) {
-      this.showLoading('Loading ETF data...');
+      this.showLoading(t('common.loadingEtfData'));
       return;
     }
 
     if (this.error || !this.data) {
-      this.showError(this.error || 'No data');
+      this.showError(this.error || t('common.noDataShort'));
       return;
     }
 
     if (this.isUpstreamUnavailable()) {
-      this.showError('ETF data source temporarily unavailable — will retry automatically');
+      this.showError(t('common.upstreamUnavailable'));
       return;
     }
 

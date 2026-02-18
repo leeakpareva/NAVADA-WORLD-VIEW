@@ -4,9 +4,10 @@ import type { NewsItem, ClusteredEvent, DeviationLevel, RelatedAsset, RelatedAss
 import { THREAT_PRIORITY } from '@/services/threat-classifier';
 import { formatTime, getCSSColor } from '@/utils';
 import { escapeHtml, sanitizeUrl } from '@/utils/sanitize';
-import { analysisWorker, enrichWithVelocityML, getClusterAssetContext, getAssetLabel, MAX_DISTANCE_KM, activityTracker, generateSummary } from '@/services';
+import { analysisWorker, enrichWithVelocityML, getClusterAssetContext, MAX_DISTANCE_KM, activityTracker, generateSummary } from '@/services';
 import { getSourcePropagandaRisk, getSourceTier, getSourceType } from '@/config/feeds';
 import { SITE_VARIANT } from '@/config';
+import { t } from '@/services/i18n';
 
 /** Threshold for enabling virtual scrolling */
 const VIRTUAL_SCROLL_THRESHOLD = 15;
@@ -120,7 +121,7 @@ export class NewsPanel extends Panel {
     this.summaryBtn = document.createElement('button');
     this.summaryBtn.className = 'panel-summarize-btn';
     this.summaryBtn.innerHTML = '✨';
-    this.summaryBtn.title = 'Summarize this panel';
+    this.summaryBtn.title = t('components.newsPanel.summarize');
     this.summaryBtn.addEventListener('click', () => this.handleSummarize());
 
     // Insert before count element (use inherited this.header directly)
@@ -149,7 +150,7 @@ export class NewsPanel extends Panel {
     this.summaryBtn.innerHTML = '<span class="panel-summarize-spinner"></span>';
     this.summaryBtn.disabled = true;
     this.summaryContainer.style.display = 'block';
-    this.summaryContainer.innerHTML = '<div class="panel-summary-loading">Generating summary...</div>';
+    this.summaryContainer.innerHTML = `<div class="panel-summary-loading">${t('components.newsPanel.generatingSummary')}</div>`;
 
     try {
       const result = await generateSummary(this.currentHeadlines.slice(0, 8));
@@ -176,7 +177,7 @@ export class NewsPanel extends Panel {
     this.summaryContainer.innerHTML = `
       <div class="panel-summary-content">
         <span class="panel-summary-text">${escapeHtml(summary)}</span>
-        <button class="panel-summary-close" title="Close">×</button>
+        <button class="panel-summary-close" title="${t('components.newsPanel.close')}">×</button>
       </div>
     `;
     this.summaryContainer.querySelector('.panel-summary-close')?.addEventListener('click', () => this.hideSummary());
@@ -231,7 +232,7 @@ export class NewsPanel extends Panel {
     if (items.length === 0) {
       this.renderRequestId += 1; // Cancel in-flight clustering from previous renders.
       this.setDataBadge('unavailable');
-      this.showError('No news available');
+      this.showError(t('common.noNewsAvailable'));
       return;
     }
 
@@ -264,7 +265,7 @@ export class NewsPanel extends Panel {
     } catch (error) {
       if (requestId !== this.renderRequestId) return;
       console.error('[NewsPanel] Failed to cluster news:', error);
-      this.showError('Failed to cluster news');
+      this.showError(t('common.failedClusterNews'));
     }
   }
 
@@ -357,7 +358,7 @@ export class NewsPanel extends Panel {
     showNewTag: boolean
   ): string {
     const sourceBadge = cluster.sourceCount > 1
-      ? `<span class="source-count">${cluster.sourceCount} sources</span>`
+      ? `<span class="source-count">${t('components.newsPanel.sources', { count: String(cluster.sourceCount) })}</span>`
       : '';
 
     const velocity = cluster.velocity;
@@ -370,7 +371,7 @@ export class NewsPanel extends Panel {
       ? `<span class="sentiment-badge ${velocity?.sentiment}">${sentimentIcon}</span>`
       : '';
 
-    const newTag = showNewTag ? '<span class="new-tag">NEW</span>' : '';
+    const newTag = showNewTag ? `<span class="new-tag">${t('common.new')}</span>` : '';
 
     // Propaganda risk indicator for primary source
     const primaryPropRisk = getSourcePropagandaRisk(cluster.primarySource);
@@ -390,14 +391,14 @@ export class NewsPanel extends Panel {
     const otherSources = cluster.topSources.filter(s => s.name !== cluster.primarySource);
     const topSourcesHtml = otherSources.length > 0
       ? `<span class="also-reported">Also:</span>` + otherSources
-          .map(s => {
-            const propRisk = getSourcePropagandaRisk(s.name);
-            const propBadge = propRisk.risk !== 'low'
-              ? `<span class="propaganda-badge ${propRisk.risk}" title="${escapeHtml(propRisk.note || `State-affiliated: ${propRisk.stateAffiliated || 'Unknown'}`)}">${propRisk.risk === 'high' ? '⚠' : '!'}</span>`
-              : '';
-            return `<span class="top-source tier-${s.tier}">${escapeHtml(s.name)}${propBadge}</span>`;
-          })
-          .join('')
+        .map(s => {
+          const propRisk = getSourcePropagandaRisk(s.name);
+          const propBadge = propRisk.risk !== 'low'
+            ? `<span class="propaganda-badge ${propRisk.risk}" title="${escapeHtml(propRisk.note || `State-affiliated: ${propRisk.stateAffiliated || 'Unknown'}`)}">${propRisk.risk === 'high' ? '⚠' : '!'}</span>`
+            : '';
+          return `<span class="top-source tier-${s.tier}">${escapeHtml(s.name)}${propBadge}</span>`;
+        })
+        .join('')
       : '';
 
     const assetContext = getClusterAssetContext(cluster);
@@ -409,13 +410,13 @@ export class NewsPanel extends Panel {
       ? `
         <div class="related-assets" data-cluster-id="${escapeHtml(cluster.id)}">
           <div class="related-assets-header">
-            Related assets near ${escapeHtml(assetContext.origin.label)}
+            ${t('components.newsPanel.relatedAssetsNear', { location: escapeHtml(assetContext.origin.label) })}
             <span class="related-assets-range">(${MAX_DISTANCE_KM}km)</span>
           </div>
           <div class="related-assets-list">
             ${assetContext.assets.map(asset => `
               <button class="related-asset" data-cluster-id="${escapeHtml(cluster.id)}" data-asset-id="${escapeHtml(asset.id)}" data-asset-type="${escapeHtml(asset.type)}">
-                <span class="related-asset-type">${escapeHtml(getAssetLabel(asset.type))}</span>
+                <span class="related-asset-type">${escapeHtml(this.getLocalizedAssetLabel(asset.type))}</span>
                 <span class="related-asset-name">${escapeHtml(asset.name)}</span>
                 <span class="related-asset-distance">${Math.round(asset.distanceKm)}km</span>
               </button>
@@ -498,6 +499,17 @@ export class NewsPanel extends Panel {
         }
       });
     });
+  }
+
+  private getLocalizedAssetLabel(type: RelatedAsset['type']): string {
+    const keyMap: Record<RelatedAsset['type'], string> = {
+      pipeline: 'modals.countryBrief.infra.pipeline',
+      cable: 'modals.countryBrief.infra.cable',
+      datacenter: 'modals.countryBrief.infra.datacenter',
+      base: 'modals.countryBrief.infra.base',
+      nuclear: 'modals.countryBrief.infra.nuclear',
+    };
+    return t(keyMap[type]);
   }
 
   /**

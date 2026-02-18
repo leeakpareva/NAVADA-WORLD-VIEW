@@ -1,7 +1,8 @@
 import { Panel } from './Panel';
 import { escapeHtml, sanitizeUrl } from '@/utils/sanitize';
+import { t } from '@/services/i18n';
 import {
-  INTEL_TOPICS,
+  getIntelTopics,
   fetchTopicIntelligence,
   formatArticleDate,
   extractDomain,
@@ -11,24 +12,17 @@ import {
 } from '@/services/gdelt-intel';
 
 export class GdeltIntelPanel extends Panel {
-  private activeTopic: IntelTopic = INTEL_TOPICS[0]!;
+  private activeTopic: IntelTopic = getIntelTopics()[0]!;
   private topicData = new Map<string, TopicIntelligence>();
   private tabsEl: HTMLElement | null = null;
 
   constructor() {
     super({
       id: 'gdelt-intel',
-      title: 'Live Intelligence',
+      title: t('panels.gdeltIntel'),
       showCount: true,
       trackActivity: true,
-      infoTooltip: `<strong>GDELT Intelligence</strong>
-        Real-time global news monitoring:
-        <ul>
-          <li>Curated topic categories (conflicts, cyber, etc.)</li>
-          <li>Articles from 100+ languages translated</li>
-          <li>Updates every 15 minutes</li>
-        </ul>
-        Source: GDELT Project (gdeltproject.org)`,
+      infoTooltip: t('components.gdeltIntel.infoTooltip'),
     });
     this.createTabs();
     this.loadActiveTopic();
@@ -38,7 +32,7 @@ export class GdeltIntelPanel extends Panel {
     this.tabsEl = document.createElement('div');
     this.tabsEl.className = 'gdelt-intel-tabs';
 
-    INTEL_TOPICS.forEach(topic => {
+    getIntelTopics().forEach(topic => {
       const tab = document.createElement('button');
       tab.className = `gdelt-intel-tab ${topic.id === this.activeTopic.id ? 'active' : ''}`;
       tab.dataset.topicId = topic.id;
@@ -79,13 +73,13 @@ export class GdeltIntelPanel extends Panel {
       this.setCount(data.articles.length);
     } catch (error) {
       console.error('[GdeltIntelPanel] Load error:', error);
-      this.showError('Failed to load intelligence feed');
+      this.showError(t('common.failedIntelFeed'));
     }
   }
 
   private renderArticles(articles: GdeltArticle[]): void {
     if (articles.length === 0) {
-      this.content.innerHTML = '<div class="empty-state">No recent articles for this topic</div>';
+      this.content.innerHTML = `<div class="empty-state">${t('components.gdelt.empty')}</div>`;
       return;
     }
 

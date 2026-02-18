@@ -1,4 +1,5 @@
 import { Panel } from './Panel';
+import { t } from '@/services/i18n';
 import type { TechHubActivity } from '@/services/tech-activity';
 import { escapeHtml, sanitizeUrl } from '@/utils/sanitize';
 import { getCSSColor } from '@/utils';
@@ -65,17 +66,13 @@ export class TechHubsPanel extends Panel {
   constructor() {
     super({
       id: 'tech-hubs',
-      title: 'Hot Tech Hubs',
+      title: t('panels.techHubs'),
       showCount: true,
-      infoTooltip: `
-        <strong>Tech Hub Activity</strong><br>
-        Shows tech hubs with the most news activity.<br><br>
-        <em>Activity levels:</em><br>
-        • <span style="color: ${getCSSColor('--semantic-normal')}">High</span> — Breaking news or 50+ score<br>
-        • <span style="color: ${getCSSColor('--semantic-elevated')}">Elevated</span> — Score 20-49<br>
-        • <span style="color: ${getCSSColor('--text-dim')}">Low</span> — Score below 20<br><br>
-        Click a hub to zoom to its location.
-      `,
+      infoTooltip: t('components.techHubs.infoTooltip', {
+        highColor: getCSSColor('--semantic-normal'),
+        elevatedColor: getCSSColor('--semantic-elevated'),
+        lowColor: getCSSColor('--text-dim'),
+      }),
     });
   }
 
@@ -95,7 +92,7 @@ export class TechHubsPanel extends Panel {
 
   private render(): void {
     if (this.activities.length === 0) {
-      this.showError('No active tech hubs');
+      this.showError(t('common.noActiveTechHubs'));
       return;
     }
 

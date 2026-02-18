@@ -1,4 +1,6 @@
+
 import { Panel } from './Panel';
+import { t } from '@/services/i18n';
 import { escapeHtml } from '@/utils/sanitize';
 import { isDesktopRuntime } from '@/services/runtime';
 import {
@@ -55,7 +57,7 @@ export class ServiceStatusPanel extends Panel {
   private localBackend: LocalBackendStatus | null = null;
 
   constructor() {
-    super({ id: 'service-status', title: 'Service Status', showCount: false });
+    super({ id: 'service-status', title: t('panels.serviceStatus'), showCount: false });
     void this.fetchStatus();
     this.refreshInterval = setInterval(() => this.fetchStatus(), 60000);
   }
@@ -70,7 +72,7 @@ export class ServiceStatusPanel extends Panel {
   private async fetchStatus(): Promise<void> {
     try {
       const res = await fetch('/api/service-status');
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status} `);
 
       const data: ServiceStatusResponse = await res.json();
       if (!data.success) throw new Error('Failed to load status');
@@ -100,21 +102,21 @@ export class ServiceStatusPanel extends Panel {
   protected render(): void {
     if (this.loading) {
       this.content.innerHTML = `
-        <div class="service-status-loading">
-          <div class="loading-spinner"></div>
-          <span>Checking services...</span>
+  < div class="service-status-loading" >
+    <div class="loading-spinner" > </div>
+      < span > Checking services...</span>
         </div>
-      `;
+          `;
       return;
     }
 
     if (this.error) {
       this.content.innerHTML = `
-        <div class="service-status-error">
-          <span class="error-text">${escapeHtml(this.error)}</span>
-          <button class="retry-btn">Retry</button>
-        </div>
-      `;
+        < div class="service-status-error" >
+          <span class="error-text" > ${escapeHtml(this.error)} </span>
+            < button class="retry-btn" > Retry </button>
+              </div>
+                `;
       this.content.querySelector('.retry-btn')?.addEventListener('click', () => {
         this.loading = true;
         this.render();
@@ -137,11 +139,11 @@ export class ServiceStatusPanel extends Panel {
       ${readinessHtml}
       ${summaryHtml}
       ${filtersHtml}
-      <div class="service-status-list">
-        ${servicesHtml}
-      </div>
+<div class="service-status-list" >
+  ${servicesHtml}
+</div>
       ${issues.length === 0 ? '<div class="all-operational">All services operational</div>' : ''}
-    `;
+`;
 
     this.attachFilterListeners();
   }
@@ -152,20 +154,20 @@ export class ServiceStatusPanel extends Panel {
 
     if (!this.localBackend?.enabled) {
       return `
-        <div class="service-status-backend warning">
-          Desktop local backend unavailable. Falling back to cloud API.
+  < div class="service-status-backend warning" >
+    Desktop local backend unavailable.Falling back to cloud API.
         </div>
-      `;
+        `;
     }
 
     const port = this.localBackend.port ?? 46123;
     const remote = this.localBackend.remoteBase ?? 'https://worldmonitor.app';
 
     return `
-      <div class="service-status-backend">
-        Local backend active on <strong>127.0.0.1:${port}</strong> · cloud fallback: <strong>${escapeHtml(remote)}</strong>
-      </div>
-    `;
+      < div class="service-status-backend" >
+        Local backend active on < strong > 127.0.0.1:${port} </strong> · cloud fallback: <strong>${escapeHtml(remote)}</strong >
+          </div>
+            `;
   }
 
   private renderSummary(services: ServiceStatus[]): string {
@@ -174,21 +176,21 @@ export class ServiceStatusPanel extends Panel {
     const outage = services.filter(s => s.status === 'outage').length;
 
     return `
-      <div class="service-status-summary">
-        <div class="summary-item operational">
-          <span class="summary-count">${operational}</span>
-          <span class="summary-label">OK</span>
-        </div>
-        <div class="summary-item degraded">
-          <span class="summary-count">${degraded}</span>
-          <span class="summary-label">Degraded</span>
-        </div>
-        <div class="summary-item outage">
-          <span class="summary-count">${outage}</span>
-          <span class="summary-label">Outage</span>
-        </div>
-      </div>
-    `;
+          < div class="service-status-summary" >
+            <div class="summary-item operational" >
+              <span class="summary-count" > ${operational} </span>
+                < span class="summary-label" > OK </span>
+                  </div>
+                  < div class="summary-item degraded" >
+                    <span class="summary-count" > ${degraded} </span>
+                      < span class="summary-label" > Degraded </span>
+                        </div>
+                        < div class="summary-item outage" >
+                          <span class="summary-count" > ${outage} </span>
+                            < span class="summary-label" > Outage </span>
+                              </div>
+                              </div>
+                                `;
   }
 
   private renderDesktopReadiness(): string {
@@ -199,26 +201,26 @@ export class ServiceStatusPanel extends Panel {
     const nonParity = getNonParityFeatures();
 
     return `
-      <div class="service-status-desktop-readiness">
-        <div class="service-status-desktop-title">Desktop readiness</div>
-        <div class="service-status-desktop-subtitle">Acceptance checks: ${checks.filter(check => check.ready).length}/${checks.length} ready · key-backed features ${keySummary.available}/${keySummary.total}</div>
-        <ul class="service-status-desktop-list">
-          ${checks.map(check => `<li>${check.ready ? '✅' : '⚠️'} ${escapeHtml(check.label)}</li>`).join('')}
-        </ul>
-        <details class="service-status-non-parity">
-          <summary>Non-parity fallbacks (${nonParity.length})</summary>
-          <ul>
+                              < div class="service-status-desktop-readiness" >
+                                <div class="service-status-desktop-title" > Desktop readiness </div>
+                                  < div class="service-status-desktop-subtitle" > Acceptance checks: ${checks.filter(check => check.ready).length} /${checks.length} ready · key-backed features ${keySummary.available}/${keySummary.total} </div>
+                                    < ul class="service-status-desktop-list" >
+                                      ${checks.map(check => `<li>${check.ready ? '✅' : '⚠️'} ${escapeHtml(check.label)}</li>`).join('')}
+</ul>
+  < details class="service-status-non-parity" >
+    <summary>Non - parity fallbacks(${nonParity.length}) </summary>
+      <ul>
             ${nonParity.map(feature => `<li><strong>${escapeHtml(feature.panel)}</strong>: ${escapeHtml(feature.fallback)}</li>`).join('')}
-          </ul>
-        </details>
-      </div>
+</ul>
+  </details>
+  </div>
     `;
   }
 
   private renderFilters(): string {
     const filters = Object.entries(CATEGORY_LABELS).map(([key, label]) => {
       const active = this.filter === key ? 'active' : '';
-      return `<button class="status-filter-btn ${active}" data-filter="${key}">${label}</button>`;
+      return `< button class="status-filter-btn ${active}" data - filter="${key}" > ${label} </button>`;
     }).join('');
 
     return `<div class="service-status-filters">${filters}</div>`;
