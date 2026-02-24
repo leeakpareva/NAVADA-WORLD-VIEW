@@ -324,9 +324,6 @@ export class DeckGLMap {
     this.state = initialState;
     this.hotspots = [...INTEL_HOTSPOTS];
 
-    this.rebuildTechHQSupercluster();
-    this.rebuildDatacenterSupercluster();
-
     this.debouncedRebuildLayers = debounce(() => {
       if (this.renderPaused || this.webglLost || !this.maplibreMap) return;
       this.maplibreMap.resize();
@@ -351,6 +348,8 @@ export class DeckGLMap {
     this.initMapLibre();
 
     this.maplibreMap?.on('load', () => {
+      this.rebuildTechHQSupercluster();
+      this.rebuildDatacenterSupercluster();
       this.initDeck();
       this.loadCountryBoundaries();
       this.render();

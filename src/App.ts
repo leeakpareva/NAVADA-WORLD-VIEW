@@ -180,6 +180,8 @@ export class App {
   private refreshRunners = new Map<string, { run: () => Promise<void>; intervalMs: number }>();
   private hiddenSince = 0;
   private isDestroyed = false;
+  private tier3IdleCallbackId: number | null = null;
+  private tier3TimeoutId: ReturnType<typeof setTimeout> | null = null;
   private boundKeydownHandler: ((e: KeyboardEvent) => void) | null = null;
   private boundFullscreenHandler: (() => void) | null = null;
   private boundResizeHandler: (() => void) | null = null;
@@ -1996,6 +1998,16 @@ export class App {
   public destroy(): void {
     this.isDestroyed = true;
 
+    // Cancel deferred tier-3 data load callback
+    if (this.tier3IdleCallbackId !== null) {
+      if ('cancelIdleCallback' in window) (window as any).cancelIdleCallback(this.tier3IdleCallbackId);
+      this.tier3IdleCallbackId = null;
+    }
+    if (this.tier3TimeoutId !== null) {
+      clearTimeout(this.tier3TimeoutId);
+      this.tier3TimeoutId = null;
+    }
+
     // Clear snapshot saving interval
     if (this.snapshotIntervalId) {
       clearInterval(this.snapshotIntervalId);
@@ -3012,59 +3024,101 @@ export class App {
   }
 
   private async loadAllData(): Promise<void> {
-    const runGuarded = async (name: string, fn: () => Promise<void>): Promise<void> => {
-      if (this.inFlight.has(name)) return;
-      this.inFlight.add(name);
-      try {
-        await fn();
-      } catch (e) {
-        console.error(`[App] ${name} failed:`, e);
-      } finally {
-        this.inFlight.delete(name);
-      }
+    const runGuarded = (name: string, fn: () => Promise<void>) => {
+      return async () => {
+        if (this.inFlight.has(name)) return;
+        this.inFlight.add(name);
+        try {
+          await fn();
+        } catch (e) {
+          console.error(`[App] ${name} failed:`, e);
+        } finally {
+          this.inFlight.delete(name);
+        }
+      };
     };
 
-    const tasks: Array<{ name: string; task: Promise<void> }> = [
-      { name: 'news', task: runGuarded('news', () => this.loadNews()) },
-      { name: 'markets', task: runGuarded('markets', () => this.loadMarkets()) },
-      { name: 'predictions', task: runGuarded('predictions', () => this.loadPredictions()) },
-      { name: 'pizzint', task: runGuarded('pizzint', () => this.loadPizzInt()) },
-      { name: 'fred', task: runGuarded('fred', () => this.loadFredData()) },
-      { name: 'oil', task: runGuarded('oil', () => this.loadOilAnalytics()) },
-      { name: 'spending', task: runGuarded('spending', () => this.loadGovernmentSpending()) },
+    interface LazyTask { name: string; run: () => Promise<void>; }
+
+    const tasks: LazyTask[] = [
+      { name: 'news', run: runGuarded('news', () => this.loadNews()) },
+      { name: 'markets', run: runGuarded('markets', () => this.loadMarkets()) },
+      { name: 'predictions', run: runGuarded('predictions', () => this.loadPredictions()) },
+      { name: 'pizzint', run: runGuarded('pizzint', () => this.loadPizzInt()) },
+      { name: 'fred', run: runGuarded('fred', () => this.loadFredData()) },
+      { name: 'oil', run: runGuarded('oil', () => this.loadOilAnalytics()) },
+      { name: 'spending', run: runGuarded('spending', () => this.loadGovernmentSpending()) },
     ];
 
     // Load intelligence signals for CII calculation (protests, military, outages)
     // Only for geopolitical variant - tech variant doesn't need CII/focal points
     if (SITE_VARIANT === 'full') {
-      tasks.push({ name: 'intelligence', task: runGuarded('intelligence', () => this.loadIntelligenceSignals()) });
+      tasks.push({ name: 'intelligence', run: runGuarded('intelligence', () => this.loadIntelligenceSignals()) });
     }
 
     // Conditionally load non-intelligence layers
     // NOTE: outages, protests, military are handled by loadIntelligenceSignals() above
     // They update the map when layers are enabled, so no duplicate tasks needed here
-    if (SITE_VARIANT === 'full') tasks.push({ name: 'firms', task: runGuarded('firms', () => this.loadFirmsData()) });
-    if (this.mapLayers.natural) tasks.push({ name: 'natural', task: runGuarded('natural', () => this.loadNatural()) });
-    if (this.mapLayers.weather) tasks.push({ name: 'weather', task: runGuarded('weather', () => this.loadWeatherAlerts()) });
-    if (this.mapLayers.ais) tasks.push({ name: 'ais', task: runGuarded('ais', () => this.loadAisSignals()) });
-    if (this.mapLayers.cables) tasks.push({ name: 'cables', task: runGuarded('cables', () => this.loadCableActivity()) });
-    if (this.mapLayers.cables) tasks.push({ name: 'cableHealth', task: runGuarded('cableHealth', () => this.loadCableHealth()) });
-    if (this.mapLayers.flights) tasks.push({ name: 'flights', task: runGuarded('flights', () => this.loadFlightDelays()) });
-    if (CYBER_LAYER_ENABLED && this.mapLayers.cyberThreats) tasks.push({ name: 'cyberThreats', task: runGuarded('cyberThreats', () => this.loadCyberThreats()) });
-    if (this.mapLayers.techEvents || SITE_VARIANT === 'tech') tasks.push({ name: 'techEvents', task: runGuarded('techEvents', () => this.loadTechEvents()) });
+    if (SITE_VARIANT === 'full') tasks.push({ name: 'firms', run: runGuarded('firms', () => this.loadFirmsData()) });
+    if (this.mapLayers.natural) tasks.push({ name: 'natural', run: runGuarded('natural', () => this.loadNatural()) });
+    if (this.mapLayers.weather) tasks.push({ name: 'weather', run: runGuarded('weather', () => this.loadWeatherAlerts()) });
+    if (this.mapLayers.ais) tasks.push({ name: 'ais', run: runGuarded('ais', () => this.loadAisSignals()) });
+    if (this.mapLayers.cables) tasks.push({ name: 'cables', run: runGuarded('cables', () => this.loadCableActivity()) });
+    if (this.mapLayers.cables) tasks.push({ name: 'cableHealth', run: runGuarded('cableHealth', () => this.loadCableHealth()) });
+    if (this.mapLayers.flights) tasks.push({ name: 'flights', run: runGuarded('flights', () => this.loadFlightDelays()) });
+    if (CYBER_LAYER_ENABLED && this.mapLayers.cyberThreats) tasks.push({ name: 'cyberThreats', run: runGuarded('cyberThreats', () => this.loadCyberThreats()) });
+    if (this.mapLayers.techEvents || SITE_VARIANT === 'tech') tasks.push({ name: 'techEvents', run: runGuarded('techEvents', () => this.loadTechEvents()) });
 
     // Tech Readiness panel (tech variant only)
     if (SITE_VARIANT === 'tech') {
-      tasks.push({ name: 'techReadiness', task: runGuarded('techReadiness', () => (this.panels['tech-readiness'] as TechReadinessPanel)?.refresh()) });
+      tasks.push({ name: 'techReadiness', run: runGuarded('techReadiness', () => (this.panels['tech-readiness'] as TechReadinessPanel)?.refresh()) });
     }
 
-    // Use allSettled to ensure all tasks complete and search index always updates
-    const results = await Promise.allSettled(tasks.map(t => t.task));
+    // --- Tiered execution: critical → important → deferred ---
+    const TIER1 = new Set(['news', 'markets', 'pizzint', 'intelligence']);
+    const TIER2 = new Set(['predictions', 'fred', 'oil', 'spending', 'firms']);
 
-    // Log any failures but don't block
+    const tier1 = tasks.filter(t => TIER1.has(t.name));
+    const tier2 = tasks.filter(t => TIER2.has(t.name));
+    const tier3 = tasks.filter(t => !TIER1.has(t.name) && !TIER2.has(t.name));
+
+    // Tier 1: fire immediately (critical path)
+    const p1 = Promise.allSettled(tier1.map(t => t.run()));
+
+    // Tier 2: yield one frame (with setTimeout fallback for hidden tabs where rAF is paused)
+    const p2 = new Promise<PromiseSettledResult<void>[]>(resolve => {
+      let fired = false;
+      const fire = () => {
+        if (fired) return;
+        fired = true;
+        Promise.allSettled(tier2.map(t => t.run())).then(resolve);
+      };
+      requestAnimationFrame(fire);
+      setTimeout(fire, 100);
+    });
+
+    // Tier 3: fire-and-forget after idle (don't block post-load init)
+    const fire = () => {
+      if (this.isDestroyed) return;
+      Promise.allSettled(tier3.map(t => t.run())).then(results => {
+        results.forEach((r, i) => {
+          if (r.status === 'rejected') console.error(`[App] ${tier3[i]?.name} failed:`, r.reason);
+        });
+      });
+    };
+    if ('requestIdleCallback' in window) {
+      this.tier3IdleCallbackId = (window as any).requestIdleCallback(() => { this.tier3IdleCallbackId = null; fire(); }, { timeout: 2000 });
+    } else {
+      this.tier3TimeoutId = setTimeout(() => { this.tier3TimeoutId = null; fire(); }, 2000);
+    }
+
+    // Await only tier 1+2 (critical path)
+    const results = (await Promise.all([p1, p2])).flat();
+    const allCritical = [...tier1, ...tier2];
+
     results.forEach((result, idx) => {
       if (result.status === 'rejected') {
-        console.error(`[App] ${tasks[idx]?.name} load failed:`, result.reason);
+        console.error(`[App] ${allCritical[idx]?.name} load failed:`, (result as PromiseRejectedResult).reason);
       }
     });
 
