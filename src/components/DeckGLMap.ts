@@ -151,6 +151,15 @@ const LIGHT_STYLE = SITE_VARIANT === 'happy'
   ? '/map-styles/happy-light.json'
   : 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
 
+// Additional map style variants for parent-frame toggle
+const MAP_STYLES: Record<string, string> = {
+  dark: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+  light: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
+  positron: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+  'dark-clean': 'https://basemaps.cartocdn.com/gl/dark-matter-nolabels-gl-style/style.json',
+  'positron-clean': 'https://basemaps.cartocdn.com/gl/positron-nolabels-gl-style/style.json',
+};
+
 // Zoom thresholds for layer visibility and labels (matches old Map.ts)
 // Zoom-dependent layer visibility and labels
 const LAYER_ZOOM_THRESHOLDS: Partial<Record<keyof MapLayers, { minZoom: number; showLabels?: number }>> = {
@@ -365,6 +374,21 @@ export class DeckGLMap {
       if (theme) {
         this.switchBasemap(theme);
         this.render(); // Rebuilds Deck.GL layers with new theme-aware colors
+      }
+    });
+
+    // Listen for parent-frame style change messages (NAVADA dashboard color toggle)
+    window.addEventListener('message', (e: MessageEvent) => {
+      if (e.data?.type === 'setMapStyle' && e.data.style && this.maplibreMap) {
+        const styleUrl = MAP_STYLES[e.data.style];
+        if (styleUrl) {
+          this.maplibreMap.setStyle(styleUrl);
+          this.countryGeoJsonLoaded = false;
+          this.maplibreMap.once('style.load', () => {
+            this.loadCountryBoundaries();
+            this.render();
+          });
+        }
       }
     });
 
