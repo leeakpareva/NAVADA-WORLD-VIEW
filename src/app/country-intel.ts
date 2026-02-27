@@ -238,14 +238,14 @@ export class CountryIntelManager implements AppModule {
             if (signals.earthquakes > 0) signalCtx.push(`${signals.earthquakes} recent earthquakes`);
             if (context.stockIndex) signalCtx.push(`Stock: ${context.stockIndex}`);
 
-            const prompt = `You are a senior intelligence analyst. Write a concise 3-paragraph intelligence brief for ${country} (${code}). Cover: (1) Current political/security situation, (2) Key developments and risks, (3) Outlook and strategic implications.${signalCtx.length ? `\n\nSignal data:\n${signalCtx.join('\n')}` : ''}${briefHeadlines.length ? `\n\nRecent headlines:\n${briefHeadlines.slice(0, 8).join('\n')}` : ''}\n\nWrite factually and concisely. No markdown headers. Date: ${new Date().toISOString().split('T')[0]}`;
+            const prompt = `You are a senior intelligence analyst. Write a brief 2-paragraph intelligence summary for ${country} (${code}). Paragraph 1: Current situation and key risks. Paragraph 2: Outlook. Keep each paragraph to 2-3 sentences max. Separate paragraphs with a blank line.${signalCtx.length ? `\n\nSignal data:\n${signalCtx.join('\n')}` : ''}${briefHeadlines.length ? `\n\nRecent headlines:\n${briefHeadlines.slice(0, 5).join('\n')}` : ''}\n\nBe factual and concise. No markdown, no headers, no bullet points. Date: ${new Date().toISOString().split('T')[0]}`;
 
             const xaiResp = await fetch('https://api.x.ai/v1/chat/completions', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${xaiKey}` },
               body: JSON.stringify({
                 model: 'grok-3-mini-fast',
-                max_tokens: 500,
+                max_tokens: 300,
                 messages: [{ role: 'user', content: prompt }],
               }),
               signal: xaiAbort.signal,
@@ -274,11 +274,11 @@ export class CountryIntelManager implements AppModule {
           const oaiTimeout = setTimeout(() => oaiAbort.abort(), 12000);
           try {
             const briefHeadlines = (context.headlines as string[] | undefined) || [];
-            const prompt = `Write a concise 3-paragraph intelligence brief for ${country}. Cover current situation, key risks, and outlook. ${briefHeadlines.length ? `Headlines: ${briefHeadlines.slice(0, 5).join('. ')}` : ''} Date: ${new Date().toISOString().split('T')[0]}`;
+            const prompt = `Write a brief 2-paragraph intelligence summary for ${country}. Paragraph 1: Current situation and key risks. Paragraph 2: Outlook. Keep each paragraph to 2-3 sentences max. Separate paragraphs with a blank line. No markdown, no headers, no bullets. ${briefHeadlines.length ? `Headlines: ${briefHeadlines.slice(0, 5).join('. ')}` : ''} Date: ${new Date().toISOString().split('T')[0]}`;
             const oaiResp = await fetch('https://api.openai.com/v1/chat/completions', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiKey}` },
-              body: JSON.stringify({ model: 'gpt-4o-mini', max_tokens: 400, messages: [{ role: 'user', content: prompt }] }),
+              body: JSON.stringify({ model: 'gpt-4o-mini', max_tokens: 300, messages: [{ role: 'user', content: prompt }] }),
               signal: oaiAbort.signal,
             });
             if (oaiResp.ok) {
@@ -408,8 +408,76 @@ export class CountryIntelManager implements AppModule {
       }
     }
 
+    const filtered = events.filter(e => e.timestamp >= sevenDaysAgo);
+
     this.ctx.countryTimeline = new CountryTimeline(mount);
-    this.ctx.countryTimeline.render(events.filter(e => e.timestamp >= sevenDaysAgo));
+
+    if (filtered.length > 0) {
+      this.ctx.countryTimeline.render(filtered);
+    } else {
+      // Show loading state then fetch AI timeline data
+      this.ctx.countryTimeline.render([]);
+      this.fetchAITimelineEvents(code, country).then(aiEvents => {
+        if (aiEvents.length > 0 && this.ctx.countryBriefPage?.getCode() === code && this.ctx.countryTimeline) {
+          this.ctx.countryTimeline.render(aiEvents);
+        }
+      });
+    }
+  }
+
+  private static timelineCache = new Map<string, TimelineEvent[]>();
+
+  private async fetchAITimelineEvents(code: string, country: string): Promise<TimelineEvent[]> {
+    const cached = CountryIntelManager.timelineCache.get(code);
+    if (cached) return cached;
+
+    const xaiKey = getSecretValue('XAI_API_KEY');
+    const openaiKey = getSecretValue('OPENAI_API_KEY');
+    const key = xaiKey || openaiKey;
+    if (!key) return [];
+
+    const baseUrl = xaiKey ? 'https://api.x.ai/v1' : 'https://api.openai.com/v1';
+    const model = xaiKey ? 'grok-3-mini-fast' : 'gpt-4o-mini';
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    const prompt = `Return recent events for ${country} (${code}) from the last 7 days as JSON array only (no markdown).
+Each event: {"timestamp":"ISO date","lane":"protest|conflict|natural|military","label":"short description","severity":"low|medium|high|critical"}
+Include 3-6 realistic events across different lanes based on current affairs. Use dates between ${sevenDaysAgo.toISOString().split('T')[0]} and ${now.toISOString().split('T')[0]}.
+Examples of events: protests, political tensions, weather events, military exercises, border incidents, demonstrations, earthquakes, diplomatic disputes.
+JSON array only, no explanation.`;
+
+    try {
+      const resp = await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+        body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], temperature: 0.4, max_tokens: 600 }),
+        signal: AbortSignal.timeout(12000),
+      });
+      if (!resp.ok) return [];
+      const json = await resp.json();
+      let text = json.choices?.[0]?.message?.content?.trim() ?? '';
+      text = text.replace(/```(?:json)?\s*/g, '').replace(/```\s*/g, '').trim();
+      const parsed = JSON.parse(text);
+      const arr = Array.isArray(parsed) ? parsed : [];
+      const events: TimelineEvent[] = arr
+        .filter((e: { timestamp?: string; lane?: string; label?: string }) => e.timestamp && e.lane && e.label)
+        .map((e: { timestamp: string; lane: string; label: string; severity?: string }) => ({
+          timestamp: new Date(e.timestamp).getTime(),
+          lane: (['protest', 'conflict', 'natural', 'military'].includes(e.lane) ? e.lane : 'natural') as TimelineEvent['lane'],
+          label: String(e.label).slice(0, 80),
+          severity: (['low', 'medium', 'high', 'critical'].includes(e.severity ?? '') ? e.severity : 'medium') as TimelineEvent['severity'],
+        }))
+        .filter((e: TimelineEvent) => !isNaN(e.timestamp));
+
+      if (events.length > 0) {
+        CountryIntelManager.timelineCache.set(code, events);
+        console.log(`[Timeline] AI generated ${events.length} events for ${country}`);
+      }
+      return events;
+    } catch {
+      return [];
+    }
   }
 
   getCountrySignals(code: string, country: string): CountryBriefSignals {

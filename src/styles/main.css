@@ -14246,12 +14246,16 @@ body.has-critical-banner .panels-grid {
 
 .intel-brief {
   font-size: 13px;
-  line-height: 1.7;
+  line-height: 1.8;
   color: var(--accent);
 }
 
 .intel-brief p {
-  margin: 0 0 12px;
+  margin: 0 0 14px;
+}
+
+.intel-brief p:last-child {
+  margin-bottom: 0;
 }
 
 .intel-brief strong {
@@ -14974,9 +14978,9 @@ body.has-critical-banner .panels-grid {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
+  flex: 1;
   min-width: 0;
-  overflow: hidden;
 }
 
 .cb-header-right {
@@ -15243,12 +15247,16 @@ body.has-critical-banner .panels-grid {
 /* Brief Text */
 .cb-brief-text {
   font-size: 13px;
-  line-height: 1.7;
+  line-height: 1.8;
   color: var(--accent);
 }
 
 .cb-brief-text p {
-  margin-bottom: 10px;
+  margin-bottom: 14px;
+}
+
+.cb-brief-text p:last-child {
+  margin-bottom: 0;
 }
 
 .cb-brief-text strong {
