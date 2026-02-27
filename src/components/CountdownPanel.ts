@@ -4,7 +4,6 @@
  */
 
 import { Panel } from './Panel';
-import { escapeHtml } from '@/utils/sanitize';
 
 const YEAR_END = new Date('2027-01-01T00:00:00').getTime();
 const YEAR_START = new Date('2026-01-01T00:00:00').getTime();

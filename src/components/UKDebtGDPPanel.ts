@@ -170,7 +170,7 @@ Include yearly data from 2000 to 2026. Format:
     const linePoints = history.map((p, i) => `${xScale(i)},${yScale(p.ratio)}`).join(' ');
 
     // Area path
-    const areaPath = `M${xScale(0)},${yScale(history[0].ratio)} ` +
+    const areaPath = `M${xScale(0)},${yScale(history[0]!.ratio)} ` +
       history.map((p, i) => `L${xScale(i)},${yScale(p.ratio)}`).join(' ') +
       ` L${xScale(history.length - 1)},${padT + chartH} L${xScale(0)},${padT + chartH} Z`;
 

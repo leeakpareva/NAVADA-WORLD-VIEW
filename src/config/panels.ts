@@ -98,8 +98,8 @@ const FULL_MAP_LAYERS: MapLayers = {
   speciesRecovery: false,
   renewableInstallations: false,
   tradeRoutes: false,
-  hunger: false,
-  naturalResources: false,
+  hunger: true,
+  naturalResources: true,
 };
 
 const FULL_MOBILE_MAP_LAYERS: MapLayers = {

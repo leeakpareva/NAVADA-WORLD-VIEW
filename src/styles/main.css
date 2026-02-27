@@ -13983,10 +13983,13 @@ body.has-critical-banner .panels-grid {
 .country-intel-title {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   font-size: 16px;
   font-weight: 600;
   color: var(--accent);
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
 }
 
 .country-flag {
