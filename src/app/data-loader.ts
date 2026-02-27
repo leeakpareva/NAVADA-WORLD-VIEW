@@ -1,5 +1,6 @@
 import type { AppContext, AppModule } from '@/app/app-context';
-import type { NewsItem, MapLayers, SocialUnrestEvent, Earthquake, InternetOutage } from '@/types';
+import type { NewsItem, MapLayers, SocialUnrestEvent, InternetOutage } from '@/types';
+import type { Earthquake } from '@/services/earthquakes';
 import type { MarketData } from '@/types';
 import type { TimeRange } from '@/components';
 import {
@@ -941,20 +942,20 @@ export class DataLoaderManager implements AppModule {
   }
 
   private getFallbackEarthquakes(): Earthquake[] {
-    const now = new Date();
+    const now = Date.now();
     return [
-      { id: 'eq-1', place: 'Near Coast of Central Chile', magnitude: 5.2, lat: -33.4, lon: -71.6, depth: 35, time: new Date(now.getTime() - 3600000), url: '' },
-      { id: 'eq-2', place: 'Mindanao, Philippines', magnitude: 5.8, lat: 6.9, lon: 126.3, depth: 45, time: new Date(now.getTime() - 7200000), url: '' },
-      { id: 'eq-3', place: 'Off East Coast of Honshu, Japan', magnitude: 6.1, lat: 37.4, lon: 141.6, depth: 30, time: new Date(now.getTime() - 10800000), url: '' },
-      { id: 'eq-4', place: 'Southern Iran', magnitude: 4.8, lat: 28.5, lon: 57.2, depth: 10, time: new Date(now.getTime() - 14400000), url: '' },
-      { id: 'eq-5', place: 'Papua New Guinea', magnitude: 5.5, lat: -5.5, lon: 151.8, depth: 55, time: new Date(now.getTime() - 18000000), url: '' },
-      { id: 'eq-6', place: 'Hindu Kush Region, Afghanistan', magnitude: 4.6, lat: 36.5, lon: 71.1, depth: 190, time: new Date(now.getTime() - 21600000), url: '' },
-      { id: 'eq-7', place: 'Near Coast of Peru', magnitude: 5.0, lat: -15.5, lon: -75.1, depth: 28, time: new Date(now.getTime() - 25200000), url: '' },
-      { id: 'eq-8', place: 'Vanuatu Region', magnitude: 5.3, lat: -15.4, lon: 167.1, depth: 35, time: new Date(now.getTime() - 28800000), url: '' },
-      { id: 'eq-9', place: 'Central Turkey', magnitude: 4.2, lat: 38.4, lon: 38.7, depth: 12, time: new Date(now.getTime() - 32400000), url: '' },
-      { id: 'eq-10', place: 'South of Fiji Islands', magnitude: 5.7, lat: -21.0, lon: -179.0, depth: 580, time: new Date(now.getTime() - 36000000), url: '' },
-      { id: 'eq-11', place: 'Sumatra, Indonesia', magnitude: 5.4, lat: 2.1, lon: 98.9, depth: 25, time: new Date(now.getTime() - 43200000), url: '' },
-      { id: 'eq-12', place: 'Tonga Islands', magnitude: 5.1, lat: -19.8, lon: -174.8, depth: 10, time: new Date(now.getTime() - 50000000), url: '' },
+      { id: 'eq-1', place: 'Near Coast of Central Chile', magnitude: 5.2, depthKm: 35, location: { latitude: -33.4, longitude: -71.6 }, occurredAt: now - 3600000, sourceUrl: '' },
+      { id: 'eq-2', place: 'Mindanao, Philippines', magnitude: 5.8, depthKm: 45, location: { latitude: 6.9, longitude: 126.3 }, occurredAt: now - 7200000, sourceUrl: '' },
+      { id: 'eq-3', place: 'Off East Coast of Honshu, Japan', magnitude: 6.1, depthKm: 30, location: { latitude: 37.4, longitude: 141.6 }, occurredAt: now - 10800000, sourceUrl: '' },
+      { id: 'eq-4', place: 'Southern Iran', magnitude: 4.8, depthKm: 10, location: { latitude: 28.5, longitude: 57.2 }, occurredAt: now - 14400000, sourceUrl: '' },
+      { id: 'eq-5', place: 'Papua New Guinea', magnitude: 5.5, depthKm: 55, location: { latitude: -5.5, longitude: 151.8 }, occurredAt: now - 18000000, sourceUrl: '' },
+      { id: 'eq-6', place: 'Hindu Kush Region, Afghanistan', magnitude: 4.6, depthKm: 190, location: { latitude: 36.5, longitude: 71.1 }, occurredAt: now - 21600000, sourceUrl: '' },
+      { id: 'eq-7', place: 'Near Coast of Peru', magnitude: 5.0, depthKm: 28, location: { latitude: -15.5, longitude: -75.1 }, occurredAt: now - 25200000, sourceUrl: '' },
+      { id: 'eq-8', place: 'Vanuatu Region', magnitude: 5.3, depthKm: 35, location: { latitude: -15.4, longitude: 167.1 }, occurredAt: now - 28800000, sourceUrl: '' },
+      { id: 'eq-9', place: 'Central Turkey', magnitude: 4.2, depthKm: 12, location: { latitude: 38.4, longitude: 38.7 }, occurredAt: now - 32400000, sourceUrl: '' },
+      { id: 'eq-10', place: 'South of Fiji Islands', magnitude: 5.7, depthKm: 580, location: { latitude: -21.0, longitude: -179.0 }, occurredAt: now - 36000000, sourceUrl: '' },
+      { id: 'eq-11', place: 'Sumatra, Indonesia', magnitude: 5.4, depthKm: 25, location: { latitude: 2.1, longitude: 98.9 }, occurredAt: now - 43200000, sourceUrl: '' },
+      { id: 'eq-12', place: 'Tonga Islands', magnitude: 5.1, depthKm: 10, location: { latitude: -19.8, longitude: -174.8 }, occurredAt: now - 50000000, sourceUrl: '' },
     ];
   }
 
