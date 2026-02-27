@@ -108,7 +108,7 @@ import { fetchHappinessScores } from '@/services/happiness-data';
 import { fetchRenewableInstallations } from '@/services/renewable-installations';
 import { filterBySentiment } from '@/services/sentiment-gate';
 import { getAIStocks, getAICommodities, getAICrypto, getAISectors, isAIMarketAvailable } from '@/services/market-ai-fallback';
-import { getAIHungerZones, getAINaturalResources, getAIProtests, getAIWeatherAlerts, getAICyberThreats, getAIOutages, getAIFlightDelays, getAIMilitaryFlights, isAILayerAvailable } from '@/services/layer-ai-fallback';
+import { getAIHungerZones, getAINaturalResources, isAILayerAvailable } from '@/services/layer-ai-fallback';
 import { fetchAllPositiveTopicIntelligence } from '@/services/gdelt-intel';
 import { fetchPositiveGeoEvents, geocodePositiveNewsItems } from '@/services/positive-events-geo';
 import { fetchKindnessData } from '@/services/kindness-data';
