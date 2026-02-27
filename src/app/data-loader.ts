@@ -1157,12 +1157,45 @@ export class DataLoaderManager implements AppModule {
         this.ctx.map?.setLayerReady('naturalResources', true);
         console.log(`[DataLoader] Natural resources loaded: ${resources.length}`);
       } else {
-        this.ctx.map?.setLayerReady('naturalResources', false);
+        this.loadFallbackNaturalResources();
       }
     } catch (e) {
       console.warn('[DataLoader] Natural resources data failed:', e);
-      this.ctx.map?.setLayerReady('naturalResources', false);
+      this.loadFallbackNaturalResources();
     }
+  }
+
+  private loadFallbackNaturalResources(): void {
+    const fallback = [
+      { id: 'nr-1', resource: 'Crude Oil', type: 'oil', country: 'Saudi Arabia', region: 'Middle East', lat: 25.3, lon: 49.5, production: '10.8M bbl/day', globalShare: '12%', significance: 'Largest OPEC producer' },
+      { id: 'nr-2', resource: 'Crude Oil', type: 'oil', country: 'USA', region: 'North America', lat: 31.9, lon: -101.9, production: '13.2M bbl/day', globalShare: '14%', significance: 'Top global producer' },
+      { id: 'nr-3', resource: 'Crude Oil', type: 'oil', country: 'Russia', region: 'Eurasia', lat: 61.0, lon: 73.4, production: '10.5M bbl/day', globalShare: '11%', significance: 'Major pipeline exporter' },
+      { id: 'nr-4', resource: 'Crude Oil', type: 'oil', country: 'Nigeria', region: 'West Africa', lat: 5.5, lon: 5.7, production: '1.4M bbl/day', globalShare: '1.5%', significance: 'Largest African producer' },
+      { id: 'nr-5', resource: 'Crude Oil', type: 'oil', country: 'Angola', region: 'Southern Africa', lat: -7.5, lon: 12.5, production: '1.1M bbl/day', globalShare: '1.2%', significance: 'OPEC member' },
+      { id: 'nr-6', resource: 'Gold', type: 'gold', country: 'South Africa', region: 'Southern Africa', lat: -26.2, lon: 28.0, production: '100 tonnes/yr', globalShare: '3%', significance: 'Witwatersrand Basin' },
+      { id: 'nr-7', resource: 'Gold', type: 'gold', country: 'Ghana', region: 'West Africa', lat: 6.0, lon: -1.6, production: '130 tonnes/yr', globalShare: '4%', significance: 'Largest African gold producer' },
+      { id: 'nr-8', resource: 'Gold', type: 'gold', country: 'Australia', region: 'Oceania', lat: -31.9, lon: 121.5, production: '310 tonnes/yr', globalShare: '10%', significance: 'Super Pit, Kalgoorlie' },
+      { id: 'nr-9', resource: 'Cobalt', type: 'cobalt', country: 'DR Congo', region: 'Central Africa', lat: -3.4, lon: 25.9, production: '130K tonnes/yr', globalShare: '73%', significance: 'Critical for EV batteries' },
+      { id: 'nr-10', resource: 'Diamonds', type: 'diamond', country: 'Botswana', region: 'Southern Africa', lat: -21.2, lon: 25.5, production: '24M carats/yr', globalShare: '15%', significance: 'Jwaneng mine' },
+      { id: 'nr-11', resource: 'Copper', type: 'copper', country: 'Chile', region: 'South America', lat: -22.3, lon: -68.9, production: '5.3M tonnes/yr', globalShare: '27%', significance: 'Escondida mine' },
+      { id: 'nr-12', resource: 'Iron Ore', type: 'iron', country: 'Australia', region: 'Oceania', lat: -22.3, lon: 118.3, production: '900M tonnes/yr', globalShare: '38%', significance: 'Pilbara region' },
+      { id: 'nr-13', resource: 'Iron Ore', type: 'iron', country: 'Brazil', region: 'South America', lat: -19.9, lon: -43.5, production: '380M tonnes/yr', globalShare: '16%', significance: 'Carajás mine' },
+      { id: 'nr-14', resource: 'Uranium', type: 'uranium', country: 'Kazakhstan', region: 'Central Asia', lat: 47.8, lon: 67.7, production: '21K tonnes/yr', globalShare: '43%', significance: 'In-situ leaching' },
+      { id: 'nr-15', resource: 'Bauxite', type: 'bauxite', country: 'Guinea', region: 'West Africa', lat: 11.3, lon: -12.3, production: '110M tonnes/yr', globalShare: '28%', significance: 'Boké region' },
+      { id: 'nr-16', resource: 'Natural Gas', type: 'gas', country: 'Qatar', region: 'Middle East', lat: 26.1, lon: 51.2, production: '177B m³/yr', globalShare: '4.4%', significance: 'North Field, LNG hub' },
+      { id: 'nr-17', resource: 'Natural Gas', type: 'gas', country: 'Mozambique', region: 'East Africa', lat: -12.3, lon: 40.5, production: '5B m³/yr', globalShare: '0.1%', significance: 'Rovuma Basin LNG' },
+      { id: 'nr-18', resource: 'Platinum', type: 'platinum', country: 'South Africa', region: 'Southern Africa', lat: -25.7, lon: 27.1, production: '130 tonnes/yr', globalShare: '72%', significance: 'Bushveld Complex' },
+      { id: 'nr-19', resource: 'Rare Earths', type: 'copper', country: 'China', region: 'East Asia', lat: 40.5, lon: 109.8, production: '210K tonnes/yr', globalShare: '60%', significance: 'Bayan Obo mine' },
+      { id: 'nr-20', resource: 'Lithium', type: 'copper', country: 'Australia', region: 'Oceania', lat: -33.7, lon: 121.9, production: '55K tonnes/yr', globalShare: '47%', significance: 'Greenbushes mine' },
+      { id: 'nr-21', resource: 'Lithium', type: 'copper', country: 'Chile', region: 'South America', lat: -23.5, lon: -68.1, production: '26K tonnes/yr', globalShare: '22%', significance: 'Salar de Atacama' },
+      { id: 'nr-22', resource: 'Tin', type: 'iron', country: 'Indonesia', region: 'Southeast Asia', lat: -2.1, lon: 106.1, production: '52K tonnes/yr', globalShare: '22%', significance: 'Bangka Belitung' },
+      { id: 'nr-23', resource: 'Nickel', type: 'cobalt', country: 'Indonesia', region: 'Southeast Asia', lat: -2.5, lon: 121.5, production: '1.6M tonnes/yr', globalShare: '48%', significance: 'Sulawesi smelters' },
+      { id: 'nr-24', resource: 'Crude Oil', type: 'oil', country: 'Iraq', region: 'Middle East', lat: 30.5, lon: 47.8, production: '4.5M bbl/day', globalShare: '5%', significance: 'Basra terminals' },
+      { id: 'nr-25', resource: 'Natural Gas', type: 'gas', country: 'USA', region: 'North America', lat: 31.4, lon: -97.7, production: '934B m³/yr', globalShare: '24%', significance: 'Permian Basin shale' },
+    ];
+    this.ctx.map?.setNaturalResources(fallback);
+    this.ctx.map?.setLayerReady('naturalResources', true);
+    console.log('[DataLoader] Natural resources: fallback data loaded (25 deposits)');
   }
 
   async loadOutages(): Promise<void> {
