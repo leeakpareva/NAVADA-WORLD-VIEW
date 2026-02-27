@@ -289,6 +289,9 @@ export class DeckGLMap {
   private ucdpEvents: UcdpGeoEvent[] = [];
   private displacementFlows: DisplacementFlow[] = [];
   private climateAnomalies: ClimateAnomaly[] = [];
+  private hungerZones: Array<{ id: string; country: string; region: string; lat: number; lon: number; level: number; levelName: string; populationAffected: number; description: string }> = [];
+  private naturalResourcesData: Array<{ id: string; resource: string; type: string; country: string; region: string; lat: number; lon: number; production: string; globalShare: string; significance: string }> = [];
+  private resourcePulsePhase = 0;
   private tradeRouteSegments: TradeRouteSegment[] = resolveTradeRouteSegments();
   private positiveEvents: PositiveGeoEvent[] = [];
   private kindnessPoints: KindnessPoint[] = [];
@@ -440,7 +443,7 @@ export class DeckGLMap {
       style: initialTheme === 'light' ? LIGHT_STYLE : DARK_STYLE,
       center: [preset.longitude, preset.latitude],
       zoom: preset.zoom,
-      minZoom: 0.5,
+      minZoom: 0.3,
       maxZoom: 18,
       renderWorldCopies: false,
       attributionControl: false,
@@ -1173,6 +1176,16 @@ export class DeckGLMap {
     } else {
       this.layerCache.delete('trade-routes-layer');
       this.layerCache.delete('trade-chokepoints-layer');
+    }
+
+    // Global Hunger layer (IPC food security zones)
+    if (mapLayers.hunger && this.hungerZones.length > 0) {
+      layers.push(this.createHungerLayer());
+    }
+
+    // Natural Resources layer (oil, gold, minerals with pulsing animation)
+    if (mapLayers.naturalResources && this.naturalResourcesData.length > 0) {
+      layers.push(this.createNaturalResourcesLayer());
     }
 
     // Tech variant layers (Supercluster-based deck.gl layers for HQs and events)
@@ -2738,6 +2751,33 @@ export class DeckGLMap {
           </div>`,
         };
       }
+      case 'hunger-layer': {
+        const ipcColors: Record<number, string> = { 1: '#64c864', 2: '#ffdc32', 3: '#ff8c00', 4: '#ff3232', 5: '#8b0000' };
+        return {
+          html: `<div class="deckgl-tooltip">
+            <strong style="color:${ipcColors[obj.level] || '#ccc'}">IPC ${obj.level} — ${text(obj.levelName)}</strong><br/>
+            ${text(obj.country)} · ${text(obj.region)}<br/>
+            <strong>${(obj.populationAffected || 0).toLocaleString()}</strong> affected<br/>
+            <span style="opacity:.7">${text(obj.description)}</span>
+          </div>`,
+        };
+      }
+      case 'natural-resources-layer': {
+        const typeIcons: Record<string, string> = {
+          oil: '&#128738;', gold: '&#129351;', diamond: '&#128142;', copper: '&#129704;',
+          cobalt: '&#128309;', uranium: '&#9762;', gas: '&#128293;', iron: '&#128296;',
+          bauxite: '&#129704;', platinum: '&#11093;',
+        };
+        return {
+          html: `<div class="deckgl-tooltip">
+            <strong>${typeIcons[obj.type] || '&#9874;'} ${text(obj.resource)}</strong><br/>
+            ${text(obj.country)} · ${text(obj.region)}<br/>
+            Production: <strong>${text(obj.production)}</strong><br/>
+            Global Share: <strong>${text(obj.globalShare)}</strong><br/>
+            <span style="opacity:.7">${text(obj.significance)}</span>
+          </div>`,
+        };
+      }
       default:
         return null;
     }
@@ -3118,6 +3158,8 @@ export class DeckGLMap {
         { key: 'waterways', label: t('components.deckgl.layers.strategicWaterways'), icon: '&#9875;' },
         { key: 'economic', label: t('components.deckgl.layers.economicCenters'), icon: '&#128176;' },
         { key: 'minerals', label: t('components.deckgl.layers.criticalMinerals'), icon: '&#128142;' },
+        { key: 'hunger', label: 'Global Hunger', icon: '&#127860;' },
+        { key: 'naturalResources', label: 'Natural Resources', icon: '&#9874;' },
       ];
 
     toggles.innerHTML = `
@@ -3125,6 +3167,13 @@ export class DeckGLMap {
         <span>${t('components.deckgl.layersTitle')}</span>
         <button class="layer-help-btn" title="${t('components.deckgl.layerGuide')}">?</button>
         <button class="toggle-collapse">&#9660;</button>
+      </div>
+      <div class="layer-filters">
+        <button class="layer-filter-btn" data-filter="all" title="Enable all layers">All</button>
+        <button class="layer-filter-btn" data-filter="none" title="Disable all layers">None</button>
+        <button class="layer-filter-btn" data-filter="security" title="Security & Military">Security</button>
+        <button class="layer-filter-btn" data-filter="hr" title="Humanitarian & Human Rights">HR</button>
+        <button class="layer-filter-btn" data-filter="environment" title="Environment & Climate">Env</button>
       </div>
       <div class="toggle-list" style="max-height: 32vh; overflow-y: auto; scrollbar-width: thin;">
         ${layerConfig.map(({ key, label, icon }) => `
@@ -3171,6 +3220,43 @@ export class DeckGLMap {
     collapseBtn?.addEventListener('click', () => {
       toggleList?.classList.toggle('collapsed');
       if (collapseBtn) collapseBtn.innerHTML = toggleList?.classList.contains('collapsed') ? '&#9654;' : '&#9660;';
+    });
+
+    // Layer filter presets
+    const FILTER_PRESETS: Record<string, string[]> = {
+      security: ['hotspots', 'conflicts', 'bases', 'nuclear', 'military', 'cyberThreats', 'spaceports', 'irradiators'],
+      hr: ['protests', 'displacement', 'hunger', 'ucdpEvents', 'outages'],
+      environment: ['weather', 'climate', 'natural', 'fires', 'waterways', 'naturalResources'],
+    };
+
+    toggles.querySelectorAll('.layer-filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const filter = (btn as HTMLElement).dataset.filter;
+        if (!filter) return;
+
+        const allCheckboxes = toggles.querySelectorAll<HTMLInputElement>('.layer-toggle input');
+        if (filter === 'all') {
+          allCheckboxes.forEach(cb => { cb.checked = true; });
+        } else if (filter === 'none') {
+          allCheckboxes.forEach(cb => { cb.checked = false; });
+        } else {
+          const preset = FILTER_PRESETS[filter] || [];
+          allCheckboxes.forEach(cb => {
+            const layerKey = cb.closest('.layer-toggle')?.getAttribute('data-layer') || '';
+            cb.checked = preset.includes(layerKey);
+          });
+        }
+
+        // Apply all checkbox states to map layers
+        allCheckboxes.forEach(cb => {
+          const layer = cb.closest('.layer-toggle')?.getAttribute('data-layer') as keyof MapLayers;
+          if (layer) {
+            this.state.layers[layer] = cb.checked;
+            this.onLayerChange?.(layer, cb.checked, 'user');
+          }
+        });
+        this.render();
+      });
     });
   }
 
@@ -3621,6 +3707,75 @@ export class DeckGLMap {
     });
   }
 
+  private createHungerLayer(): ScatterplotLayer {
+    // IPC level colors: 1=green, 2=yellow, 3=orange, 4=red, 5=dark red
+    const levelColor = (level: number): [number, number, number, number] => {
+      switch (level) {
+        case 1: return [100, 200, 100, 180];
+        case 2: return [255, 220, 50, 200];
+        case 3: return [255, 140, 0, 220];
+        case 4: return [255, 50, 50, 230];
+        case 5: return [139, 0, 0, 255];
+        default: return [200, 200, 200, 150];
+      }
+    };
+    return new ScatterplotLayer({
+      id: 'hunger-layer',
+      data: this.hungerZones,
+      getPosition: (d: typeof this.hungerZones[0]) => [d.lon, d.lat],
+      getRadius: (d: typeof this.hungerZones[0]) => Math.max(50000, Math.min(200000, Math.sqrt(d.populationAffected) * 5)),
+      getFillColor: (d: typeof this.hungerZones[0]) => levelColor(d.level),
+      getLineColor: [255, 255, 255, 100],
+      lineWidthMinPixels: 1,
+      stroked: true,
+      filled: true,
+      pickable: true,
+      opacity: 0.7,
+    });
+  }
+
+  private createNaturalResourcesLayer(): ScatterplotLayer {
+    type NR = typeof this.naturalResourcesData[0];
+    const resourceColor = (type: string): [number, number, number, number] => {
+      switch (type) {
+        case 'oil': return [30, 30, 30, 220]; // Black/dark
+        case 'gold': return [255, 215, 0, 230]; // Gold
+        case 'diamond': return [185, 242, 255, 230]; // Light cyan
+        case 'copper': return [184, 115, 51, 220]; // Copper
+        case 'cobalt': return [0, 71, 171, 220]; // Cobalt blue
+        case 'uranium': return [0, 255, 0, 200]; // Green glow
+        case 'gas': return [255, 140, 0, 200]; // Orange
+        case 'iron': return [139, 69, 19, 220]; // Brown
+        case 'bauxite': return [205, 92, 92, 200]; // Indian red
+        case 'platinum': return [229, 228, 226, 230]; // Platinum silver
+        default: return [200, 200, 200, 200];
+      }
+    };
+    const pulse = Math.sin(this.resourcePulsePhase) * 0.3 + 0.7; // 0.4 to 1.0
+    return new ScatterplotLayer({
+      id: 'natural-resources-layer',
+      data: this.naturalResourcesData,
+      getPosition: (d: NR) => [d.lon, d.lat],
+      getRadius: () => 15000 * pulse,
+      getFillColor: (d: NR) => resourceColor(d.type),
+      getLineColor: (d: NR) => {
+        const c = resourceColor(d.type);
+        return [c[0], c[1], c[2], Math.round(100 * pulse)] as [number, number, number, number];
+      },
+      lineWidthMinPixels: 2,
+      stroked: true,
+      filled: true,
+      pickable: true,
+      opacity: 0.85,
+      radiusMinPixels: 6,
+      radiusMaxPixels: 18,
+      updateTriggers: {
+        getRadius: [this.resourcePulsePhase],
+        getLineColor: [this.resourcePulsePhase],
+      },
+    });
+  }
+
   private createTradeRoutesLayer(): ArcLayer<TradeRouteSegment> {
     const active: [number, number, number, number] = getCurrentTheme() === 'light' ? [30, 100, 180, 200] : [100, 200, 255, 160];
     const disrupted: [number, number, number, number] = getCurrentTheme() === 'light' ? [200, 40, 40, 220] : [255, 80, 80, 200];
@@ -3760,6 +3915,29 @@ export class DeckGLMap {
 
   public setClimateAnomalies(anomalies: ClimateAnomaly[]): void {
     this.climateAnomalies = anomalies;
+    this.render();
+  }
+
+  public setHungerZones(zones: Array<{ id: string; country: string; region: string; lat: number; lon: number; level: number; levelName: string; populationAffected: number; description: string }>): void {
+    this.hungerZones = zones;
+    this.render();
+  }
+
+  public setNaturalResources(resources: Array<{ id: string; resource: string; type: string; country: string; region: string; lat: number; lon: number; production: string; globalShare: string; significance: string }>): void {
+    this.naturalResourcesData = resources;
+    // Start pulse animation
+    if (resources.length > 0 && this.resourcePulsePhase === 0) {
+      const animate = () => {
+        this.resourcePulsePhase = (this.resourcePulsePhase + 0.03) % (Math.PI * 2);
+        if (this.state.layers.naturalResources && this.naturalResourcesData.length > 0) {
+          this.render();
+          requestAnimationFrame(animate);
+        } else {
+          this.resourcePulsePhase = 0;
+        }
+      };
+      requestAnimationFrame(animate);
+    }
     this.render();
   }
 

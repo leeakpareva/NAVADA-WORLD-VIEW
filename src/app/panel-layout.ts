@@ -36,6 +36,9 @@ import {
   UKUnemploymentPanel,
   GlobalPopulationPanel,
   AICompaniesPanel,
+  BitcoinPricePanel,
+  CountdownPanel,
+  UKDebtGDPPanel,
 } from '@/components';
 import { SatelliteFiresPanel } from '@/components/SatelliteFiresPanel';
 import { PositiveNewsFeedPanel } from '@/components/PositiveNewsFeedPanel';
@@ -204,6 +207,8 @@ export class PanelLayoutManager implements AppModule {
           <span class="footer-terms">Intelligence data may be delayed or cached. This platform serves as both a command center and learning environment.</span>
         </div>
         <div class="footer-right">
+          <a href="#" class="footer-link" id="aboutLink">About</a>
+          <span class="footer-divider">|</span>
           <a href="https://github.com/leeakpareva" target="_blank" rel="noopener" class="footer-link">GitHub</a>
           <span class="footer-divider">|</span>
           <span class="footer-copyright">© ${new Date().getFullYear()} NAVADA</span>
@@ -212,6 +217,88 @@ export class PanelLayoutManager implements AppModule {
     `;
 
     this.createPanels();
+    this.initAboutModal();
+  }
+
+  private initAboutModal(): void {
+    const aboutLink = document.getElementById('aboutLink');
+    if (!aboutLink) return;
+    aboutLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.showAboutModal();
+    });
+  }
+
+  private showAboutModal(): void {
+    const existing = document.getElementById('aboutModal');
+    if (existing) { existing.remove(); return; }
+
+    const overlay = document.createElement('div');
+    overlay.id = 'aboutModal';
+    overlay.className = 'about-modal-overlay';
+    overlay.innerHTML = `
+      <div class="about-modal">
+        <button class="about-close" id="aboutClose">&times;</button>
+        <div class="about-content">
+          <h1 class="about-title">NAVADA World View</h1>
+          <p class="about-subtitle">Real-Time Global Intelligence Dashboard</p>
+
+          <section class="about-section">
+            <h2>Objective</h2>
+            <p>NAVADA World View is an open-source intelligence (OSINT) dashboard built to <strong>educate, inform, and inspire</strong>. It aggregates real-time data from dozens of global sources into a single command center, making complex geopolitical, economic, environmental, and humanitarian information accessible to everyone.</p>
+            <p>This platform is designed as both a <strong>learning tool</strong> and a <strong>practical intelligence resource</strong>. Whether you are a student studying international relations, a researcher tracking global trends, or simply a curious individual who wants to understand what is happening in the world, this dashboard puts the data at your fingertips.</p>
+          </section>
+
+          <section class="about-section">
+            <h2>What You Can Explore</h2>
+            <ul>
+              <li><strong>Live Map Layers</strong> covering conflict zones, protests, natural disasters, cyber threats, global hunger, natural resources, military activity, weather alerts, and more</li>
+              <li><strong>Market Intelligence</strong> with stocks, crypto, commodities, and sector heatmaps</li>
+              <li><strong>Humanitarian Data</strong> including displacement flows, population exposure, and food insecurity (IPC levels)</li>
+              <li><strong>Technology Tracking</strong> with AI companies, startup hubs, and tech events worldwide</li>
+              <li><strong>Economic Indicators</strong> including UK unemployment, debt-to-GDP ratios, and macro signals</li>
+            </ul>
+          </section>
+
+          <section class="about-section">
+            <h2>Tech Stack</h2>
+            <div class="about-tech-grid">
+              <div class="about-tech-item"><strong>Frontend</strong><br/>TypeScript, Vite, deck.gl, MapLibre GL</div>
+              <div class="about-tech-item"><strong>Data Visualization</strong><br/>WebGL layers, SVG charts, real-time counters</div>
+              <div class="about-tech-item"><strong>AI Integration</strong><br/>xAI Grok, OpenAI GPT-4o, intelligent fallbacks</div>
+              <div class="about-tech-item"><strong>Data Sources</strong><br/>ACLED, GDELT, CoinGecko, Finnhub, UCDP, NWS, RSS feeds</div>
+              <div class="about-tech-item"><strong>Mapping</strong><br/>MapLibre GL JS, deck.gl ScatterplotLayer, ArcLayer, GeoJsonLayer</div>
+              <div class="about-tech-item"><strong>Deployment</strong><br/>Vercel, PM2, Nginx reverse proxy</div>
+            </div>
+          </section>
+
+          <section class="about-section">
+            <h2>Build Your Own</h2>
+            <p>This project is open source and designed to be forked, extended, and customized. We encourage you to:</p>
+            <ul>
+              <li>Clone this repository and add your own data layers and panels</li>
+              <li>Connect your own APIs and intelligence sources</li>
+              <li>Build custom visualizations for the topics you care about</li>
+              <li>Share your version with the community</li>
+            </ul>
+            <p>In the age of AI, creativity is your greatest superpower. The tools to build something extraordinary are now accessible to everyone. Use them. Experiment fearlessly. Stay creative.</p>
+          </section>
+
+          <section class="about-section">
+            <h2>Credits</h2>
+            <p>Developed by <strong>Lee Akpareva MBA, MA</strong> (NAVADA)</p>
+            <p>Based on <a href="https://github.com/koala73/worldmonitor" target="_blank" rel="noopener">World Monitor</a> by Elie Habib</p>
+            <p><a href="https://github.com/leeakpareva" target="_blank" rel="noopener">github.com/leeakpareva</a></p>
+          </section>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    document.getElementById('aboutClose')?.addEventListener('click', () => overlay.remove());
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) overlay.remove();
+    });
   }
 
   renderCriticalBanner(postures: TheaterPostureSummary[]): void {
@@ -552,6 +639,15 @@ export class PanelLayoutManager implements AppModule {
 
       const aiCompaniesPanel = new AICompaniesPanel();
       this.ctx.panels['ai-companies'] = aiCompaniesPanel;
+
+      const bitcoinPanel = new BitcoinPricePanel();
+      this.ctx.panels['bitcoin-price'] = bitcoinPanel;
+
+      const countdownPanel = new CountdownPanel();
+      this.ctx.panels['countdown-2026'] = countdownPanel;
+
+      const debtGdpPanel = new UKDebtGDPPanel();
+      this.ctx.panels['uk-debt-gdp'] = debtGdpPanel;
     }
 
     if (SITE_VARIANT === 'finance') {

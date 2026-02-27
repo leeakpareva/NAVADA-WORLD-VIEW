@@ -322,6 +322,18 @@ export class MapContainer {
     }
   }
 
+  public setHungerZones(zones: Array<{ id: string; country: string; region: string; lat: number; lon: number; level: number; levelName: string; populationAffected: number; description: string }>): void {
+    if (this.useDeckGL) {
+      this.deckGLMap?.setHungerZones(zones);
+    }
+  }
+
+  public setNaturalResources(resources: Array<{ id: string; resource: string; type: string; country: string; region: string; lat: number; lon: number; production: string; globalShare: string; significance: string }>): void {
+    if (this.useDeckGL) {
+      this.deckGLMap?.setNaturalResources(resources);
+    }
+  }
+
   public setCyberThreats(threats: CyberThreat[]): void {
     if (this.useDeckGL) {
       this.deckGLMap?.setCyberThreats(threats);

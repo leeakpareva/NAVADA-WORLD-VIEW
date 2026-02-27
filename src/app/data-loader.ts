@@ -108,6 +108,7 @@ import { fetchHappinessScores } from '@/services/happiness-data';
 import { fetchRenewableInstallations } from '@/services/renewable-installations';
 import { filterBySentiment } from '@/services/sentiment-gate';
 import { getAIStocks, getAICommodities, getAICrypto, getAISectors, isAIMarketAvailable } from '@/services/market-ai-fallback';
+import { getAIHungerZones, getAINaturalResources, getAIProtests, getAIWeatherAlerts, getAICyberThreats, getAIOutages, getAIFlightDelays, getAIMilitaryFlights, isAILayerAvailable } from '@/services/layer-ai-fallback';
 import { fetchAllPositiveTopicIntelligence } from '@/services/gdelt-intel';
 import { fetchPositiveGeoEvents, geocodePositiveNewsItems } from '@/services/positive-events-geo';
 import { fetchKindnessData } from '@/services/kindness-data';
@@ -236,6 +237,8 @@ export class DataLoaderManager implements AppModule {
     if (SITE_VARIANT !== 'happy' && this.ctx.mapLayers.flights) tasks.push({ name: 'flights', task: runGuarded('flights', () => this.loadFlightDelays()) });
     if (SITE_VARIANT !== 'happy' && CYBER_LAYER_ENABLED && this.ctx.mapLayers.cyberThreats) tasks.push({ name: 'cyberThreats', task: runGuarded('cyberThreats', () => this.loadCyberThreats()) });
     if (SITE_VARIANT !== 'happy' && (this.ctx.mapLayers.techEvents || SITE_VARIANT === 'tech')) tasks.push({ name: 'techEvents', task: runGuarded('techEvents', () => this.loadTechEvents()) });
+    if (this.ctx.mapLayers.hunger) tasks.push({ name: 'hunger', task: runGuarded('hunger', () => this.loadHungerData()) });
+    if (this.ctx.mapLayers.naturalResources) tasks.push({ name: 'naturalResources', task: runGuarded('naturalResources', () => this.loadNaturalResources()) });
 
     if (SITE_VARIANT === 'tech') {
       tasks.push({ name: 'techReadiness', task: runGuarded('techReadiness', () => (this.ctx.panels['tech-readiness'] as TechReadinessPanel)?.refresh()) });
@@ -303,6 +306,12 @@ export class DataLoaderManager implements AppModule {
         case 'displacement':
         case 'climate':
           await this.loadIntelligenceSignals();
+          break;
+        case 'hunger':
+          await this.loadHungerData();
+          break;
+        case 'naturalResources':
+          await this.loadNaturalResources();
           break;
       }
     } finally {
@@ -1122,6 +1131,32 @@ export class DataLoaderManager implements AppModule {
 
     (this.ctx.panels['cii'] as CIIPanel)?.refresh();
     console.log('[Intelligence] All signals loaded for CII calculation');
+  }
+
+  async loadHungerData(): Promise<void> {
+    if (!isAILayerAvailable()) return;
+    try {
+      const zones = await getAIHungerZones();
+      if (zones.length > 0) {
+        this.ctx.map?.setHungerZones(zones);
+        console.log(`[DataLoader] Hunger zones loaded: ${zones.length}`);
+      }
+    } catch (e) {
+      console.warn('[DataLoader] Hunger data failed:', e);
+    }
+  }
+
+  async loadNaturalResources(): Promise<void> {
+    if (!isAILayerAvailable()) return;
+    try {
+      const resources = await getAINaturalResources();
+      if (resources.length > 0) {
+        this.ctx.map?.setNaturalResources(resources);
+        console.log(`[DataLoader] Natural resources loaded: ${resources.length}`);
+      }
+    } catch (e) {
+      console.warn('[DataLoader] Natural resources data failed:', e);
+    }
   }
 
   async loadOutages(): Promise<void> {

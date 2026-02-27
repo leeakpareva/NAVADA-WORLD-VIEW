@@ -531,6 +531,10 @@ export interface MapLayers {
   renewableInstallations: boolean;
   // Trade route layers
   tradeRoutes: boolean;
+  // Humanitarian layers
+  hunger: boolean;
+  // Resource layers
+  naturalResources: boolean;
 }
 
 export interface AIDataCenter {

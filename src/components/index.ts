@@ -44,3 +44,6 @@ export * from './SupplyChainPanel';
 export * from './UKUnemploymentPanel';
 export * from './GlobalPopulationPanel';
 export * from './AICompaniesPanel';
+export * from './BitcoinPricePanel';
+export * from './CountdownPanel';
+export * from './UKDebtGDPPanel';
