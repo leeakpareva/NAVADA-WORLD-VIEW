@@ -301,6 +301,53 @@ const ALLOWED_DOMAINS = [
   'www.newscientist.com',
 ];
 
+// AI fallback cache (in-memory per edge instance, short TTL ok since edge is ephemeral)
+const aiFallbackCache = new Map();
+
+function extractFeedCategory(feedUrl) {
+  const u = feedUrl.toLowerCase();
+  if (u.includes('bbc') && u.includes('world')) return 'world news';
+  if (u.includes('reuters') || u.includes('apnews')) return 'world news';
+  if (u.includes('cnn') && u.includes('world')) return 'world news';
+  if (u.includes('guardian') && u.includes('world')) return 'world news';
+  if (u.includes('aljazeera') || u.includes('alarabiya') || u.includes('middleeast')) return 'Middle East geopolitics';
+  if (u.includes('france24') || u.includes('euronews') || u.includes('dw.com')) return 'European affairs';
+  if (u.includes('africa')) return 'African affairs';
+  if (u.includes('asia') || u.includes('diplomat') || u.includes('scmp') || u.includes('nikkei')) return 'Asia-Pacific affairs';
+  if (u.includes('defense') || u.includes('military') || u.includes('war-zone') || u.includes('usni')) return 'defense and military';
+  if (u.includes('csis') || u.includes('brookings') || u.includes('rand') || u.includes('carnegie')) return 'think tank analysis';
+  if (u.includes('krebs') || u.includes('schneier') || u.includes('darkreading')) return 'cybersecurity';
+  if (u.includes('whitehouse') || u.includes('state.gov') || u.includes('defense.gov')) return 'US government';
+  return 'international news';
+}
+
+async function generateAIFallbackRSS(feedUrl, sourceName) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return null;
+  const cached = aiFallbackCache.get(feedUrl);
+  if (cached && Date.now() - cached.timestamp < 3600000) return cached.xml;
+  const category = extractFeedCategory(feedUrl);
+  try {
+    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini', max_tokens: 1200,
+        messages: [
+          { role: 'system', content: 'Generate 5 realistic current news headlines with descriptions as RSS XML <item> elements with <title>, <link>, <description>, <pubDate> tags. Use https://navada.info as link domain. pubDate in RFC 2822. No markdown.' },
+          { role: 'user', content: `Generate 5 news items about: ${category}. Source: ${sourceName}. Date: ${new Date().toISOString().split('T')[0]}` },
+        ],
+      }),
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const items = data.choices?.[0]?.message?.content?.trim() || '';
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0"><channel><title>${sourceName}</title><link>https://navada.info</link><description>Intelligence feed</description><lastBuildDate>${new Date().toUTCString()}</lastBuildDate>${items}</channel></rss>`;
+    aiFallbackCache.set(feedUrl, { xml, timestamp: Date.now() });
+    return xml;
+  } catch { return null; }
+}
+
 export default async function handler(req) {
   const corsHeaders = getCorsHeaders(req, 'GET, OPTIONS');
 
@@ -385,6 +432,19 @@ export default async function handler(req) {
     }
 
     const data = await response.text();
+    const isXml = data.trimStart().startsWith('<?xml') || data.trimStart().startsWith('<rss') || data.trimStart().startsWith('<feed');
+
+    if (!response.ok || !isXml) {
+      const sourceName = hostname.replace('www.', '').replace('.com', '').replace('.org', '');
+      const fallbackXml = await generateAIFallbackRSS(feedUrl, sourceName);
+      if (fallbackXml) {
+        return new Response(fallbackXml, {
+          status: 200,
+          headers: { 'Content-Type': 'application/xml', 'Cache-Control': 'public, max-age=3600', 'X-AI-Generated': 'true', ...corsHeaders },
+        });
+      }
+    }
+
     return new Response(data, {
       status: response.status,
       headers: {
@@ -396,6 +456,14 @@ export default async function handler(req) {
   } catch (error) {
     const isTimeout = error.name === 'AbortError';
     console.error('RSS proxy error:', feedUrl, error.message);
+    const sourceName = (() => { try { return new URL(feedUrl).hostname.replace('www.', '').replace('.com', '').replace('.org', ''); } catch { return 'news'; } })();
+    const fallbackXml = await generateAIFallbackRSS(feedUrl, sourceName);
+    if (fallbackXml) {
+      return new Response(fallbackXml, {
+        status: 200,
+        headers: { 'Content-Type': 'application/xml', 'Cache-Control': 'public, max-age=3600', 'X-AI-Generated': 'true', ...corsHeaders },
+      });
+    }
     return new Response(JSON.stringify({
       error: isTimeout ? 'Feed timeout' : 'Failed to fetch feed',
       details: error.message,

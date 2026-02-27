@@ -758,6 +758,7 @@ function youtubeLivePlugin(): Plugin {
 }
 
 export default defineConfig({
+  envPrefix: ['VITE_', 'XAI_', 'GROQ_', 'OPENROUTER_', 'FRED_', 'EIA_', 'ACLED_', 'FINNHUB_', 'NASA_', 'WTO_', 'OPENAI_', 'MISTRAL_'],
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },

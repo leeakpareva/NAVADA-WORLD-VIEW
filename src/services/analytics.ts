@@ -54,6 +54,8 @@ const SECRET_ANALYTICS_NAMES: Record<RuntimeSecretKey, string> = {
   OLLAMA_MODEL: 'ollama_model',
   WORLDMONITOR_API_KEY: 'worldmonitor',
   WTO_API_KEY: 'wto',
+  XAI_API_KEY: 'xai',
+  OPENAI_API_KEY: 'openai',
 };
 
 // ── Typed event schemas (allowlisted properties per event) ──

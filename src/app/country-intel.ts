@@ -17,6 +17,7 @@ import { BETA_MODE } from '@/config/beta';
 import { mlWorker } from '@/services/ml-worker';
 import { t } from '@/services/i18n';
 import { trackCountrySelected, trackCountryBriefOpened } from '@/services/analytics';
+import { getSecretValue, isFeatureAvailable } from '@/services/runtime-config';
 import type { StrategicPosturePanel } from '@/components/StrategicPosturePanel';
 
 type IntlDisplayNamesCtor = new (
@@ -214,6 +215,67 @@ export class CountryIntelManager implements AppModule {
         briefText = resp.brief;
       } catch { /* server unreachable */ }
 
+      // xAI Grok fallback: direct API call for country intelligence brief
+      if (!briefText && isFeatureAvailable('aiXai')) {
+        const xaiKey = getSecretValue('XAI_API_KEY');
+        if (xaiKey) {
+          try {
+            const briefHeadlines = (context.headlines as string[] | undefined) || [];
+            const signalCtx: string[] = [];
+            if (score) signalCtx.push(`Instability Index: ${score.score}/100 (${score.level}, trend: ${score.trend})`);
+            if (signals.protests > 0) signalCtx.push(`${signals.protests} protest events detected`);
+            if (signals.militaryFlights > 0) signalCtx.push(`${signals.militaryFlights} military aircraft tracked`);
+            if (signals.militaryVessels > 0) signalCtx.push(`${signals.militaryVessels} naval vessels tracked`);
+            if (signals.outages > 0) signalCtx.push(`${signals.outages} internet outages reported`);
+            if (signals.earthquakes > 0) signalCtx.push(`${signals.earthquakes} recent earthquakes`);
+            if (context.stockIndex) signalCtx.push(`Stock: ${context.stockIndex}`);
+
+            const prompt = `You are a senior intelligence analyst. Write a concise 3-paragraph intelligence brief for ${country} (${code}). Cover: (1) Current political/security situation, (2) Key developments and risks, (3) Outlook and strategic implications.${signalCtx.length ? `\n\nSignal data:\n${signalCtx.join('\n')}` : ''}${briefHeadlines.length ? `\n\nRecent headlines:\n${briefHeadlines.slice(0, 8).join('\n')}` : ''}\n\nWrite factually and concisely. No markdown headers. Date: ${new Date().toISOString().split('T')[0]}`;
+
+            const xaiResp = await fetch('https://api.x.ai/v1/chat/completions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${xaiKey}` },
+              body: JSON.stringify({
+                model: 'grok-3-mini-fast',
+                max_tokens: 500,
+                messages: [{ role: 'user', content: prompt }],
+              }),
+            });
+            if (xaiResp.ok) {
+              const xaiData = await xaiResp.json();
+              const xaiBrief = xaiData.choices?.[0]?.message?.content?.trim();
+              if (xaiBrief && xaiBrief.length > 30) {
+                briefText = xaiBrief;
+                console.log(`[CountryBrief] xAI Grok brief generated for ${country}`);
+              }
+            }
+          } catch (e) {
+            console.warn('[CountryBrief] xAI Grok failed:', e);
+          }
+        }
+      }
+
+      // OpenAI fallback
+      if (!briefText) {
+        const openaiKey = getSecretValue('OPENAI_API_KEY') || (import.meta as { env?: Record<string, string> }).env?.OPENAI_API_KEY;
+        if (openaiKey) {
+          try {
+            const briefHeadlines = (context.headlines as string[] | undefined) || [];
+            const prompt = `Write a concise 3-paragraph intelligence brief for ${country}. Cover current situation, key risks, and outlook. ${briefHeadlines.length ? `Headlines: ${briefHeadlines.slice(0, 5).join('. ')}` : ''} Date: ${new Date().toISOString().split('T')[0]}`;
+            const oaiResp = await fetch('https://api.openai.com/v1/chat/completions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiKey}` },
+              body: JSON.stringify({ model: 'gpt-4o-mini', max_tokens: 400, messages: [{ role: 'user', content: prompt }] }),
+            });
+            if (oaiResp.ok) {
+              const oaiData = await oaiResp.json();
+              const oaiBrief = oaiData.choices?.[0]?.message?.content?.trim();
+              if (oaiBrief && oaiBrief.length > 30) { briefText = oaiBrief; console.log(`[CountryBrief] OpenAI brief for ${country}`); }
+            }
+          } catch { /* OpenAI failed */ }
+        }
+      }
+
       if (briefText) {
         this.ctx.countryBriefPage!.updateBrief({ brief: briefText, country, code });
       } else {
@@ -246,7 +308,7 @@ export class CountryIntelManager implements AppModule {
           if (lines.length > 0) {
             this.ctx.countryBriefPage!.updateBrief({ brief: lines.join('\n'), country, code, fallback: true });
           } else {
-            this.ctx.countryBriefPage!.updateBrief({ brief: '', country, code, error: 'No AI service available. Configure GROQ_API_KEY in Settings for full briefs.' });
+            this.ctx.countryBriefPage!.updateBrief({ brief: '', country, code, error: 'No AI service available.' });
           }
         }
       }

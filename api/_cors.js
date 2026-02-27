@@ -1,8 +1,13 @@
 const ALLOWED_ORIGIN_PATTERNS = [
   /^https:\/\/(.*\.)?worldmonitor\.app$/,
   /^https:\/\/worldmonitor-[a-z0-9-]+-elie-[a-z0-9]+\.vercel\.app$/,
+  /^https:\/\/(.*\.)?navada-world-view\.vercel\.app$/,
+  /^https:\/\/worldmonitor-repo[a-z0-9-]*\.vercel\.app$/,
+  /^https:\/\/(.*-)?leeakparevas-projects\.vercel\.app$/,
+  /^https:\/\/(.*\.)?navada-world-view\.xyz$/,
   /^https?:\/\/localhost(:\d+)?$/,
   /^https?:\/\/127\.0\.0\.1(:\d+)?$/,
+  /^https?:\/\/192\.168\.\d+\.\d+(:\d+)?$/,
   /^https?:\/\/tauri\.localhost(:\d+)?$/,
   /^https?:\/\/[a-z0-9-]+\.tauri\.localhost(:\d+)?$/i,
   /^tauri:\/\/localhost$/,

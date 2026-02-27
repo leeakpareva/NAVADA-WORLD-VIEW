@@ -4,6 +4,8 @@ import { invokeTauri } from './tauri-bridge';
 export type RuntimeSecretKey =
   | 'GROQ_API_KEY'
   | 'OPENROUTER_API_KEY'
+  | 'XAI_API_KEY'
+  | 'OPENAI_API_KEY'
   | 'FRED_API_KEY'
   | 'EIA_API_KEY'
   | 'CLOUDFLARE_API_TOKEN'
@@ -28,6 +30,7 @@ export type RuntimeSecretKey =
 export type RuntimeFeatureId =
   | 'aiGroq'
   | 'aiOpenRouter'
+  | 'aiXai'
   | 'economicFred'
   | 'energyEia'
   | 'internetOutages'
@@ -74,6 +77,7 @@ function getSidecarSecretValidateUrl(): string {
 const defaultToggles: Record<RuntimeFeatureId, boolean> = {
   aiGroq: true,
   aiOpenRouter: true,
+  aiXai: true,
   economicFred: true,
   energyEia: true,
   internetOutages: true,
@@ -105,6 +109,13 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     description: 'Primary fast LLM provider used for AI summary generation.',
     requiredSecrets: ['GROQ_API_KEY'],
     fallback: 'Falls back to OpenRouter, then local browser model.',
+  },
+  {
+    id: 'aiXai',
+    name: 'xAI Grok summarization',
+    description: 'xAI Grok LLM provider for AI country briefs and summaries.',
+    requiredSecrets: ['XAI_API_KEY'],
+    fallback: 'Falls back to Groq, then OpenRouter, then local browser model.',
   },
   {
     id: 'aiOpenRouter',
@@ -340,6 +351,10 @@ export function getSecretState(key: RuntimeSecretKey): { present: boolean; valid
   const state = runtimeConfig.secrets[key];
   if (!state) return { present: false, valid: false, source: 'missing' };
   return { present: true, valid: validateSecret(key, state.value).valid, source: state.source };
+}
+
+export function getSecretValue(key: RuntimeSecretKey): string | undefined {
+  return runtimeConfig.secrets[key]?.value || undefined;
 }
 
 export function isFeatureAvailable(featureId: RuntimeFeatureId): boolean {

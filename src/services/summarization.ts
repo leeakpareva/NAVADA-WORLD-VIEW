@@ -10,12 +10,12 @@
 import { mlWorker } from './ml-worker';
 import { SITE_VARIANT } from '@/config';
 import { BETA_MODE } from '@/config/beta';
-import { isFeatureAvailable, type RuntimeFeatureId } from './runtime-config';
+import { isFeatureAvailable, getSecretValue, type RuntimeFeatureId } from './runtime-config';
 import { trackLLMUsage, trackLLMFailure } from './analytics';
 import { NewsServiceClient, type SummarizeArticleResponse } from '@/generated/client/worldmonitor/news/v1/service_client';
 import { createCircuitBreaker } from '@/utils';
 
-export type SummarizationProvider = 'ollama' | 'groq' | 'openrouter' | 'browser' | 'cache';
+export type SummarizationProvider = 'ollama' | 'groq' | 'openrouter' | 'xai' | 'openai' | 'browser' | 'cache';
 
 export interface SummarizationResult {
   summary: string;
@@ -93,6 +93,54 @@ async function tryApiProvider(
     };
   } catch (error) {
     console.warn(`[Summarization] ${providerDef.label} failed:`, error);
+    return null;
+  }
+}
+
+// ── Direct LLM API providers (bypass RPC when server unavailable) ──
+
+async function tryDirectXai(headlines: string[], geoContext?: string): Promise<SummarizationResult | null> {
+  if (!isFeatureAvailable('aiXai')) return null;
+  const apiKey = getSecretValue('XAI_API_KEY');
+  if (!apiKey) return null;
+  try {
+    const combined = headlines.slice(0, 8).map(h => h.slice(0, 100)).join('. ');
+    const prompt = `Summarize the most important developments in 2-3 concise sentences (under 80 words). ${geoContext ? `Context: ${geoContext}. ` : ''}Headlines: ${combined}`;
+    const resp = await fetch('https://api.x.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({ model: 'grok-3-mini-fast', max_tokens: 200, messages: [{ role: 'user', content: prompt }] }),
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const summary = data.choices?.[0]?.message?.content?.trim();
+    if (!summary || summary.length < 20) return null;
+    console.log('[Summarization] xAI Grok direct success');
+    return { summary, provider: 'xai', model: 'grok-3-mini-fast', cached: false };
+  } catch (e) {
+    console.warn('[Summarization] xAI direct failed:', e);
+    return null;
+  }
+}
+
+async function tryDirectOpenai(headlines: string[], geoContext?: string): Promise<SummarizationResult | null> {
+  const apiKey = (import.meta as { env?: Record<string, string> }).env?.OPENAI_API_KEY;
+  if (!apiKey) return null;
+  try {
+    const combined = headlines.slice(0, 8).map(h => h.slice(0, 100)).join('. ');
+    const prompt = `Summarize the most important developments in 2-3 sentences (under 80 words). ${geoContext ? `Context: ${geoContext}. ` : ''}Headlines: ${combined}`;
+    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({ model: 'gpt-4o-mini', max_tokens: 200, messages: [{ role: 'user', content: prompt }] }),
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const summary = data.choices?.[0]?.message?.content?.trim();
+    if (!summary || summary.length < 20) return null;
+    console.log('[Summarization] OpenAI direct success');
+    return { summary, provider: 'openai', model: 'gpt-4o-mini', cached: false };
+  } catch {
     return null;
   }
 }
@@ -240,14 +288,25 @@ async function generateSummaryInternal(
     return null;
   }
 
-  // Normal mode: API chain -> Browser T5
-  const totalSteps = API_PROVIDERS.length + 1;
+  // Normal mode: API chain -> Direct xAI/OpenAI -> Browser T5
+  const totalSteps = API_PROVIDERS.length + 3;
   let chainResult: SummarizationResult | null = null;
 
   if (!options?.skipCloudProviders) {
     chainResult = await runApiChain(API_PROVIDERS, headlines, geoContext, lang, onProgress, 1, totalSteps);
   }
   if (chainResult) return chainResult;
+
+  // Direct API fallback (bypasses RPC server)
+  if (!options?.skipCloudProviders) {
+    onProgress?.(API_PROVIDERS.length + 1, totalSteps, 'Connecting to xAI Grok...');
+    const xaiResult = await tryDirectXai(headlines, geoContext);
+    if (xaiResult) return xaiResult;
+
+    onProgress?.(API_PROVIDERS.length + 2, totalSteps, 'Connecting to OpenAI...');
+    const openaiResult = await tryDirectOpenai(headlines, geoContext);
+    if (openaiResult) return openaiResult;
+  }
 
   if (!options?.skipBrowserFallback) {
     onProgress?.(totalSteps, totalSteps, 'Loading local AI model...');
