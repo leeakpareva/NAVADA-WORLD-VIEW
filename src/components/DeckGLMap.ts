@@ -1188,8 +1188,8 @@ export class DeckGLMap {
       layers.push(this.createNaturalResourcesLayer());
     }
 
-    // Tech variant layers (Supercluster-based deck.gl layers for HQs and events)
-    if (SITE_VARIANT === 'tech') {
+    // Tech layers (available in tech and full variants when toggled on)
+    if (SITE_VARIANT === 'tech' || SITE_VARIANT === 'full') {
       if (mapLayers.startupHubs) {
         layers.push(this.createStartupHubsLayer());
       }
@@ -2753,12 +2753,24 @@ export class DeckGLMap {
       }
       case 'hunger-layer': {
         const ipcColors: Record<number, string> = { 1: '#64c864', 2: '#ffdc32', 3: '#ff8c00', 4: '#ff3232', 5: '#8b0000' };
+        const ipcLevel = obj.level || 1;
+        const popM = ((obj.populationAffected || 0) / 1_000_000).toFixed(1);
+        const barWidth = Math.min(100, (ipcLevel / 5) * 100);
+        const barColor = ipcColors[ipcLevel] || '#ccc';
         return {
-          html: `<div class="deckgl-tooltip">
-            <strong style="color:${ipcColors[obj.level] || '#ccc'}">IPC ${obj.level} — ${text(obj.levelName)}</strong><br/>
+          html: `<div class="deckgl-tooltip" style="min-width:200px">
+            <strong style="color:${barColor}">IPC ${ipcLevel} — ${text(obj.levelName)}</strong><br/>
             ${text(obj.country)} · ${text(obj.region)}<br/>
-            <strong>${(obj.populationAffected || 0).toLocaleString()}</strong> affected<br/>
-            <span style="opacity:.7">${text(obj.description)}</span>
+            <div style="margin:4px 0">
+              <svg width="100%" height="28" viewBox="0 0 200 28">
+                <rect x="0" y="2" width="200" height="10" rx="3" fill="rgba(255,255,255,0.1)"/>
+                <rect x="0" y="2" width="${barWidth * 2}" height="10" rx="3" fill="${barColor}"/>
+                <text x="2" y="24" fill="rgba(255,255,255,0.6)" font-size="9">IPC 1</text>
+                <text x="170" y="24" fill="rgba(255,255,255,0.6)" font-size="9">IPC 5</text>
+              </svg>
+            </div>
+            <strong>${popM}M</strong> people affected<br/>
+            <span style="opacity:.7;font-size:11px">${text(obj.description)}</span>
           </div>`,
         };
       }
@@ -2768,13 +2780,30 @@ export class DeckGLMap {
           cobalt: '&#128309;', uranium: '&#9762;', gas: '&#128293;', iron: '&#128296;',
           bauxite: '&#129704;', platinum: '&#11093;',
         };
+        const typeColors: Record<string, string> = {
+          oil: '#1e1e1e', gold: '#ffd700', diamond: '#b9f2ff', copper: '#b87333',
+          cobalt: '#0047ab', uranium: '#00ff00', gas: '#ff6600', iron: '#a0522d',
+          bauxite: '#cd853f', platinum: '#e5e4e2',
+        };
+        const shareNum = parseFloat(obj.globalShare) || 0;
+        const shareBar = Math.min(100, shareNum);
+        const resColor = typeColors[obj.type] || '#888';
         return {
-          html: `<div class="deckgl-tooltip">
-            <strong>${typeIcons[obj.type] || '&#9874;'} ${text(obj.resource)}</strong><br/>
+          html: `<div class="deckgl-tooltip" style="min-width:220px">
+            <strong>${typeIcons[obj.type] || '&#9874;'} ${text(obj.resource)}</strong>
+            <span style="opacity:.6;font-size:10px;margin-left:4px">${text(obj.type?.toUpperCase())}</span><br/>
             ${text(obj.country)} · ${text(obj.region)}<br/>
-            Production: <strong>${text(obj.production)}</strong><br/>
-            Global Share: <strong>${text(obj.globalShare)}</strong><br/>
-            <span style="opacity:.7">${text(obj.significance)}</span>
+            <div style="margin:5px 0 3px">
+              <div style="display:flex;justify-content:space-between;font-size:10px;opacity:.7;margin-bottom:2px">
+                <span>Global Share</span><span><strong>${text(obj.globalShare)}</strong></span>
+              </div>
+              <svg width="100%" height="12" viewBox="0 0 200 12">
+                <rect x="0" y="0" width="200" height="12" rx="3" fill="rgba(255,255,255,0.1)"/>
+                <rect x="0" y="0" width="${shareBar * 2}" height="12" rx="3" fill="${resColor}" opacity="0.85"/>
+              </svg>
+            </div>
+            <div style="font-size:11px">Production: <strong>${text(obj.production)}</strong></div>
+            <span style="opacity:.7;font-size:11px">${text(obj.significance)}</span>
           </div>`,
         };
       }
@@ -3133,33 +3162,51 @@ export class DeckGLMap {
           { key: 'renewableInstallations', label: 'Clean Energy', icon: '&#9889;' },
         ]
       : [
+        // Security & Military
         { key: 'hotspots', label: t('components.deckgl.layers.intelHotspots'), icon: '&#127919;' },
         { key: 'conflicts', label: t('components.deckgl.layers.conflictZones'), icon: '&#9876;' },
         { key: 'bases', label: t('components.deckgl.layers.militaryBases'), icon: '&#127963;' },
         { key: 'nuclear', label: t('components.deckgl.layers.nuclearSites'), icon: '&#9762;' },
         { key: 'irradiators', label: t('components.deckgl.layers.gammaIrradiators'), icon: '&#9888;' },
         { key: 'spaceports', label: t('components.deckgl.layers.spaceports'), icon: '&#128640;' },
+        { key: 'military', label: t('components.deckgl.layers.militaryActivity'), icon: '&#9992;' },
+        // Infrastructure
         { key: 'cables', label: t('components.deckgl.layers.underseaCables'), icon: '&#128268;' },
         { key: 'pipelines', label: t('components.deckgl.layers.pipelines'), icon: '&#128738;' },
         { key: 'datacenters', label: t('components.deckgl.layers.aiDataCenters'), icon: '&#128421;' },
-        { key: 'military', label: t('components.deckgl.layers.militaryActivity'), icon: '&#9992;' },
+        { key: 'outages', label: t('components.deckgl.layers.internetOutages'), icon: '&#128225;' },
+        { key: 'cyberThreats', label: t('components.deckgl.layers.cyberThreats'), icon: '&#128737;' },
+        // Transport & Trade
         { key: 'ais', label: t('components.deckgl.layers.shipTraffic'), icon: '&#128674;' },
         { key: 'tradeRoutes', label: t('components.deckgl.layers.tradeRoutes'), icon: '&#9875;' },
         { key: 'flights', label: t('components.deckgl.layers.flightDelays'), icon: '&#9992;' },
+        { key: 'waterways', label: t('components.deckgl.layers.strategicWaterways'), icon: '&#9875;' },
+        // Humanitarian
         { key: 'protests', label: t('components.deckgl.layers.protests'), icon: '&#128226;' },
         { key: 'ucdpEvents', label: t('components.deckgl.layers.ucdpEvents'), icon: '&#9876;' },
         { key: 'displacement', label: t('components.deckgl.layers.displacementFlows'), icon: '&#128101;' },
+        { key: 'hunger', label: 'Global Hunger (IPC)', icon: '&#127860;' },
+        // Environment & Resources
         { key: 'climate', label: t('components.deckgl.layers.climateAnomalies'), icon: '&#127787;' },
         { key: 'weather', label: t('components.deckgl.layers.weatherAlerts'), icon: '&#9928;' },
-        { key: 'outages', label: t('components.deckgl.layers.internetOutages'), icon: '&#128225;' },
-        { key: 'cyberThreats', label: t('components.deckgl.layers.cyberThreats'), icon: '&#128737;' },
         { key: 'natural', label: t('components.deckgl.layers.naturalEvents'), icon: '&#127755;' },
         { key: 'fires', label: t('components.deckgl.layers.fires'), icon: '&#128293;' },
-        { key: 'waterways', label: t('components.deckgl.layers.strategicWaterways'), icon: '&#9875;' },
-        { key: 'economic', label: t('components.deckgl.layers.economicCenters'), icon: '&#128176;' },
-        { key: 'minerals', label: t('components.deckgl.layers.criticalMinerals'), icon: '&#128142;' },
-        { key: 'hunger', label: 'Global Hunger', icon: '&#127860;' },
         { key: 'naturalResources', label: 'Natural Resources', icon: '&#9874;' },
+        { key: 'minerals', label: t('components.deckgl.layers.criticalMinerals'), icon: '&#128142;' },
+        // Economy & Finance
+        { key: 'economic', label: t('components.deckgl.layers.economicCenters'), icon: '&#128176;' },
+        { key: 'stockExchanges', label: 'Stock Exchanges', icon: '&#127963;' },
+        { key: 'financialCenters', label: 'Financial Centers', icon: '&#128176;' },
+        { key: 'centralBanks', label: 'Central Banks', icon: '&#127974;' },
+        { key: 'commodityHubs', label: 'Commodity Hubs', icon: '&#128230;' },
+        { key: 'gulfInvestments', label: 'Gulf Investments', icon: '&#127760;' },
+        // Tech & Innovation
+        { key: 'startupHubs', label: 'Startup Hubs', icon: '&#128161;' },
+        { key: 'techHQs', label: 'Tech HQs', icon: '&#127970;' },
+        { key: 'cloudRegions', label: 'Cloud Regions', icon: '&#9729;' },
+        { key: 'accelerators', label: 'Accelerators', icon: '&#9889;' },
+        { key: 'techEvents', label: 'Tech Events', icon: '&#128197;' },
+        { key: 'sanctions', label: 'Sanctions', icon: '&#128683;' },
       ];
 
     toggles.innerHTML = `
@@ -3174,6 +3221,8 @@ export class DeckGLMap {
         <button class="layer-filter-btn" data-filter="security" title="Security & Military">Security</button>
         <button class="layer-filter-btn" data-filter="hr" title="Humanitarian & Human Rights">HR</button>
         <button class="layer-filter-btn" data-filter="environment" title="Environment & Climate">Env</button>
+        <button class="layer-filter-btn" data-filter="economy" title="Economy & Finance">Econ</button>
+        <button class="layer-filter-btn" data-filter="tech" title="Tech & Innovation">Tech</button>
       </div>
       <div class="toggle-list" style="max-height: 32vh; overflow-y: auto; scrollbar-width: thin;">
         ${layerConfig.map(({ key, label, icon }) => `
@@ -3224,9 +3273,11 @@ export class DeckGLMap {
 
     // Layer filter presets
     const FILTER_PRESETS: Record<string, string[]> = {
-      security: ['hotspots', 'conflicts', 'bases', 'nuclear', 'military', 'cyberThreats', 'spaceports', 'irradiators'],
+      security: ['hotspots', 'conflicts', 'bases', 'nuclear', 'military', 'cyberThreats', 'spaceports', 'irradiators', 'sanctions'],
       hr: ['protests', 'displacement', 'hunger', 'ucdpEvents', 'outages'],
-      environment: ['weather', 'climate', 'natural', 'fires', 'waterways', 'naturalResources'],
+      environment: ['weather', 'climate', 'natural', 'fires', 'waterways', 'naturalResources', 'minerals'],
+      economy: ['economic', 'stockExchanges', 'financialCenters', 'centralBanks', 'commodityHubs', 'gulfInvestments', 'tradeRoutes', 'pipelines'],
+      tech: ['datacenters', 'startupHubs', 'techHQs', 'cloudRegions', 'accelerators', 'techEvents', 'cables'],
     };
 
     toggles.querySelectorAll('.layer-filter-btn').forEach(btn => {

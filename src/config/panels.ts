@@ -40,7 +40,6 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   heatmap: { name: 'Sector Heatmap', enabled: true, priority: 2 },
   ai: { name: 'AI/ML', enabled: true, priority: 2 },
   layoffs: { name: 'Layoffs Tracker', enabled: true, priority: 2 },
-  monitors: { name: 'My Monitors', enabled: true, priority: 2 },
   'satellite-fires': { name: 'Fires', enabled: true, priority: 2 },
   'macro-signals': { name: 'Market Radar', enabled: true, priority: 2 },
   'etf-flows': { name: 'BTC ETF Tracker', enabled: true, priority: 2 },
@@ -55,49 +54,49 @@ const FULL_PANELS: Record<string, PanelConfig> = {
 const FULL_MAP_LAYERS: MapLayers = {
   conflicts: true,
   bases: true,
-  cables: false,
-  pipelines: false,
+  cables: true,
+  pipelines: true,
   hotspots: true,
-  ais: false,
+  ais: true,
   nuclear: true,
-  irradiators: false,
+  irradiators: true,
   sanctions: true,
   weather: true,
   economic: true,
   waterways: true,
   outages: true,
-  cyberThreats: false,
-  datacenters: false,
-  protests: false,
-  flights: false,
+  cyberThreats: true,
+  datacenters: true,
+  protests: true,
+  flights: true,
   military: true,
   natural: true,
-  spaceports: false,
-  minerals: false,
-  fires: false,
+  spaceports: true,
+  minerals: true,
+  fires: true,
   // Data source layers
-  ucdpEvents: false,
-  displacement: false,
-  climate: false,
-  // Tech layers (disabled in full variant)
-  startupHubs: false,
-  cloudRegions: false,
-  accelerators: false,
-  techHQs: false,
-  techEvents: false,
-  // Finance layers (disabled in full variant)
-  stockExchanges: false,
-  financialCenters: false,
-  centralBanks: false,
-  commodityHubs: false,
-  gulfInvestments: false,
+  ucdpEvents: true,
+  displacement: true,
+  climate: true,
+  // Tech layers (enabled in full variant for visibility)
+  startupHubs: true,
+  cloudRegions: true,
+  accelerators: true,
+  techHQs: true,
+  techEvents: true,
+  // Finance layers (enabled in full variant for visibility)
+  stockExchanges: true,
+  financialCenters: true,
+  centralBanks: true,
+  commodityHubs: true,
+  gulfInvestments: true,
   // Happy variant layers
   positiveEvents: false,
   kindness: false,
   happiness: false,
   speciesRecovery: false,
   renewableInstallations: false,
-  tradeRoutes: false,
+  tradeRoutes: true,
   hunger: true,
   naturalResources: true,
 };
@@ -189,7 +188,6 @@ const TECH_PANELS: Record<string, PanelConfig> = {
   'macro-signals': { name: 'Market Radar', enabled: true, priority: 2 },
   'etf-flows': { name: 'BTC ETF Tracker', enabled: true, priority: 2 },
   stablecoins: { name: 'Stablecoins', enabled: true, priority: 2 },
-  monitors: { name: 'My Monitors', enabled: true, priority: 2 },
 };
 
 const TECH_MAP_LAYERS: MapLayers = {
@@ -326,7 +324,6 @@ const FINANCE_PANELS: Record<string, PanelConfig> = {
   'gcc-investments': { name: 'GCC Investments', enabled: true, priority: 2 },
   gccNews: { name: 'GCC Business News', enabled: true, priority: 2 },
   polymarket: { name: 'Predictions', enabled: true, priority: 2 },
-  monitors: { name: 'My Monitors', enabled: true, priority: 2 },
 };
 
 const FINANCE_MAP_LAYERS: MapLayers = {
@@ -603,7 +600,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   dataTracking: {
     labelKey: 'header.panelCatDataTracking',
-    panelKeys: ['monitors', 'satellite-fires', 'ucdp-events', 'displacement', 'climate', 'population-exposure'],
+    panelKeys: ['satellite-fires', 'ucdp-events', 'displacement', 'climate', 'population-exposure'],
     variants: ['full'],
   },
 
@@ -625,7 +622,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   techMarkets: {
     labelKey: 'header.panelCatMarkets',
-    panelKeys: ['markets', 'finance', 'crypto', 'economic', 'polymarket', 'macro-signals', 'etf-flows', 'stablecoins', 'layoffs', 'monitors'],
+    panelKeys: ['markets', 'finance', 'crypto', 'economic', 'polymarket', 'macro-signals', 'etf-flows', 'stablecoins', 'layoffs'],
     variants: ['tech'],
   },
 
@@ -662,7 +659,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   gulfMena: {
     labelKey: 'header.panelCatGulfMena',
-    panelKeys: ['gcc-investments', 'gccNews', 'monitors'],
+    panelKeys: ['gcc-investments', 'gccNews'],
     variants: ['finance'],
   },
 };

@@ -9,7 +9,6 @@ import {
   CommoditiesPanel,
   CryptoPanel,
   PredictionPanel,
-  MonitorPanel,
   EconomicPanel,
   GdeltIntelPanel,
   LiveNewsPanel,
@@ -68,7 +67,6 @@ import { trackCriticalBannerAction } from '@/services/analytics';
 export interface PanelLayoutCallbacks {
   openCountryStory: (code: string, name: string) => void;
   loadAllData: () => Promise<void>;
-  updateMonitorResults: () => void;
 }
 
 export class PanelLayoutManager implements AppModule {
@@ -497,14 +495,6 @@ export class PanelLayoutManager implements AppModule {
     const marketsPanel = new MarketPanel();
     this.ctx.panels['markets'] = marketsPanel;
 
-    const monitorPanel = new MonitorPanel(this.ctx.monitors);
-    this.ctx.panels['monitors'] = monitorPanel;
-    monitorPanel.onChanged((monitors) => {
-      this.ctx.monitors = monitors;
-      saveToStorage(STORAGE_KEYS.monitors, monitors);
-      this.callbacks.updateMonitorResults();
-    });
-
     const commoditiesPanel = new CommoditiesPanel();
     this.ctx.panels['commodities'] = commoditiesPanel;
 
@@ -804,14 +794,8 @@ export class PanelLayoutManager implements AppModule {
     if (savedOrder.length > 0) {
       const missing = defaultOrder.filter(k => !savedOrder.includes(k));
       const valid = savedOrder.filter(k => defaultOrder.includes(k));
-      const monitorsIdx = valid.indexOf('monitors');
-      if (monitorsIdx !== -1) valid.splice(monitorsIdx, 1);
       const insertIdx = valid.indexOf('politics') + 1 || 0;
-      const newPanels = missing.filter(k => k !== 'monitors');
-      valid.splice(insertIdx, 0, ...newPanels);
-      if (SITE_VARIANT !== 'happy') {
-        valid.push('monitors');
-      }
+      valid.splice(insertIdx, 0, ...missing);
       panelOrder = valid;
     }
 

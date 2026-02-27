@@ -57,7 +57,7 @@ export class App {
 
     const isMobile = isMobileDevice();
     const isDesktopApp = isDesktopRuntime();
-    const monitors = loadFromStorage<Monitor[]>(STORAGE_KEYS.monitors, []);
+    const monitors: Monitor[] = [];
 
     // Use mobile-specific defaults on first load (no saved layers)
     const defaultLayers = isMobile ? MOBILE_DEFAULT_MAP_LAYERS : DEFAULT_MAP_LAYERS;
@@ -261,7 +261,6 @@ export class App {
     this.panelLayout = new PanelLayoutManager(this.state, {
       openCountryStory: (code, name) => this.countryIntel.openCountryStory(code, name),
       loadAllData: () => this.dataLoader.loadAllData(),
-      updateMonitorResults: () => this.dataLoader.updateMonitorResults(),
     });
 
     this.eventHandlers = new EventHandlerManager(this.state, {

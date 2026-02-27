@@ -47,16 +47,6 @@ export const DESKTOP_PARITY_FEATURES: DesktopParityFeature[] = [
     priority: 1,
   },
   {
-    id: 'monitor',
-    panel: 'MonitorPanel',
-    serviceFiles: [],
-    apiRoutes: [],
-    apiHandlers: [],
-    locality: 'fully-local',
-    fallback: 'Keyword monitoring runs fully client-side on loaded news corpus.',
-    priority: 1,
-  },
-  {
     id: 'strategic-risk',
     panel: 'StrategicRiskPanel',
     serviceFiles: ['src/services/cached-risk-scores.ts'],
