@@ -782,7 +782,7 @@ export class DataLoaderManager implements AppModule {
       this.ctx.latestMarkets = stocksResult.data;
       (this.ctx.panels['markets'] as MarketPanel).renderMarkets(stocksResult.data, stocksResult.rateLimited);
 
-      if (stocksResult.rateLimited && stocksResult.data.length === 0) {
+      if (stocksResult.rateLimited) {
         // AI fallback: generate approximate market data when rate-limited
         if (isAIMarketAvailable()) {
           console.log('[DataLoader] Rate limited — using AI market fallback');
@@ -819,10 +819,42 @@ export class DataLoaderManager implements AppModule {
         }
       } else if (stocksResult.skipped) {
         this.ctx.statusPanel?.updateApi('Finnhub', { status: 'error' });
-        if (stocksResult.data.length === 0) {
-          this.ctx.panels['markets']?.showConfigError(finnhubConfigMsg);
+        // AI fallback when Finnhub key not configured
+        if (isAIMarketAvailable()) {
+          console.log('[DataLoader] Finnhub skipped — using AI market fallback');
+          try {
+            const [aiStocks, aiCommodities, aiSectors] = await Promise.all([
+              getAIStocks(),
+              getAICommodities(),
+              getAISectors(),
+            ]);
+            if (aiStocks.length > 0) {
+              const aiMarketData = aiStocks.map(s => ({ ...s, sparkline: undefined }));
+              this.ctx.latestMarkets = aiMarketData;
+              (this.ctx.panels['markets'] as MarketPanel).renderMarkets(aiMarketData);
+            }
+            if (aiCommodities.length > 0) {
+              (this.ctx.panels['commodities'] as CommoditiesPanel).renderCommodities(
+                aiCommodities.map(c => ({ display: c.display, price: c.price, change: c.change, sparkline: undefined }))
+              );
+              commoditiesLoaded = true;
+            }
+            if (aiSectors.length > 0) {
+              (this.ctx.panels['heatmap'] as HeatmapPanel).renderHeatmap(aiSectors);
+            }
+          } catch (e) {
+            console.warn('[DataLoader] AI market fallback failed:', e);
+            if (stocksResult.data.length === 0) {
+              this.ctx.panels['markets']?.showConfigError(finnhubConfigMsg);
+            }
+            this.ctx.panels['heatmap']?.showConfigError(finnhubConfigMsg);
+          }
+        } else {
+          if (stocksResult.data.length === 0) {
+            this.ctx.panels['markets']?.showConfigError(finnhubConfigMsg);
+          }
+          this.ctx.panels['heatmap']?.showConfigError(finnhubConfigMsg);
         }
-        this.ctx.panels['heatmap']?.showConfigError(finnhubConfigMsg);
       } else {
         this.ctx.statusPanel?.updateApi('Finnhub', { status: 'ok' });
 
@@ -859,11 +891,44 @@ export class DataLoaderManager implements AppModule {
           commoditiesLoaded = true;
         }
       }
+      if (!commoditiesLoaded && isAIMarketAvailable()) {
+        console.log('[DataLoader] Commodities failed — using AI fallback');
+        try {
+          const aiCommodities = await getAICommodities();
+          if (aiCommodities.length > 0) {
+            commoditiesPanel.renderCommodities(
+              aiCommodities.map(c => ({ display: c.display, price: c.price, change: c.change, sparkline: undefined }))
+            );
+            commoditiesLoaded = true;
+          }
+        } catch { /* AI fallback also failed */ }
+      }
       if (!commoditiesLoaded) {
         commoditiesPanel.renderCommodities([]);
       }
     } catch {
       this.ctx.statusPanel?.updateApi('Finnhub', { status: 'error' });
+      // AI fallback on total market failure
+      if (isAIMarketAvailable()) {
+        console.log('[DataLoader] Markets catch — using AI fallback');
+        try {
+          const [aiStocks, aiCommodities, aiSectors] = await Promise.all([
+            getAIStocks(), getAICommodities(), getAISectors(),
+          ]);
+          if (aiStocks.length > 0) {
+            this.ctx.latestMarkets = aiStocks.map(s => ({ ...s, sparkline: undefined }));
+            (this.ctx.panels['markets'] as MarketPanel).renderMarkets(this.ctx.latestMarkets);
+          }
+          if (aiCommodities.length > 0) {
+            (this.ctx.panels['commodities'] as CommoditiesPanel).renderCommodities(
+              aiCommodities.map(c => ({ display: c.display, price: c.price, change: c.change, sparkline: undefined }))
+            );
+          }
+          if (aiSectors.length > 0) {
+            (this.ctx.panels['heatmap'] as HeatmapPanel).renderHeatmap(aiSectors);
+          }
+        } catch { /* AI fallback also failed */ }
+      }
     }
 
     try {

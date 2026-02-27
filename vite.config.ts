@@ -990,6 +990,7 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+    allowedHosts: ['navada.tail394c36.ts.net'],
     open: !isE2E,
     hmr: isE2E ? false : undefined,
     watch: {
