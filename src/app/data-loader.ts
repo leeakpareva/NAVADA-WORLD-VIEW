@@ -108,7 +108,7 @@ import { fetchHappinessScores } from '@/services/happiness-data';
 import { fetchRenewableInstallations } from '@/services/renewable-installations';
 import { filterBySentiment } from '@/services/sentiment-gate';
 import { getAIStocks, getAICommodities, getAICrypto, getAISectors, isAIMarketAvailable } from '@/services/market-ai-fallback';
-import { getAIHungerZones, getAINaturalResources, isAILayerAvailable } from '@/services/layer-ai-fallback';
+import { getAIHungerZones, getAINaturalResources } from '@/services/layer-ai-fallback';
 import { fetchAllPositiveTopicIntelligence } from '@/services/gdelt-intel';
 import { fetchPositiveGeoEvents, geocodePositiveNewsItems } from '@/services/positive-events-geo';
 import { fetchKindnessData } from '@/services/kindness-data';
@@ -1134,28 +1134,34 @@ export class DataLoaderManager implements AppModule {
   }
 
   async loadHungerData(): Promise<void> {
-    if (!isAILayerAvailable()) return;
     try {
       const zones = await getAIHungerZones();
       if (zones.length > 0) {
         this.ctx.map?.setHungerZones(zones);
+        this.ctx.map?.setLayerReady('hunger', true);
         console.log(`[DataLoader] Hunger zones loaded: ${zones.length}`);
+      } else {
+        this.ctx.map?.setLayerReady('hunger', false);
       }
     } catch (e) {
       console.warn('[DataLoader] Hunger data failed:', e);
+      this.ctx.map?.setLayerReady('hunger', false);
     }
   }
 
   async loadNaturalResources(): Promise<void> {
-    if (!isAILayerAvailable()) return;
     try {
       const resources = await getAINaturalResources();
       if (resources.length > 0) {
         this.ctx.map?.setNaturalResources(resources);
+        this.ctx.map?.setLayerReady('naturalResources', true);
         console.log(`[DataLoader] Natural resources loaded: ${resources.length}`);
+      } else {
+        this.ctx.map?.setLayerReady('naturalResources', false);
       }
     } catch (e) {
       console.warn('[DataLoader] Natural resources data failed:', e);
+      this.ctx.map?.setLayerReady('naturalResources', false);
     }
   }
 

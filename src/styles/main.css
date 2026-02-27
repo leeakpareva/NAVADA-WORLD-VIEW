@@ -15998,6 +15998,23 @@ body.has-critical-banner .panels-grid {
 .debt-gdp-stat-val { font-size: 13px; font-weight: 600; color: var(--text); }
 .debt-gdp-source { font-size: 9px; color: var(--text-secondary); padding: 6px 12px; opacity: 0.6; }
 
+/* ====== Job Losses Panel ====== */
+.job-losses-panel { padding: 8px 12px; }
+.job-losses-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+.job-losses-total { font-size: 28px; font-weight: 800; color: #ff4444; }
+.job-losses-trend { font-size: 12px; text-transform: capitalize; }
+.job-losses-trend.up { color: #ff4444; }
+.job-losses-trend.down { color: #4caf50; }
+.job-losses-chart { margin: 8px 0; }
+.job-losses-chart svg { width: 100%; height: auto; }
+.job-losses-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 8px 0; }
+.job-loss-stat { background: var(--overlay-light); border-radius: 6px; padding: 6px 8px; text-align: center; }
+.job-loss-label { display: block; font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+.job-loss-val { display: block; font-size: 16px; font-weight: 700; color: var(--accent); margin-top: 2px; }
+.job-losses-companies { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
+.job-loss-company { font-size: 10px; padding: 2px 8px; background: rgba(255,68,68,0.1); color: #ff8888; border-radius: 10px; border: 1px solid rgba(255,68,68,0.2); }
+.job-losses-source { font-size: 9px; color: var(--text-secondary); padding: 6px 0; opacity: 0.6; }
+
 /* ====== About Modal ====== */
 .about-modal-overlay {
   position: fixed; inset: 0; z-index: 10000;

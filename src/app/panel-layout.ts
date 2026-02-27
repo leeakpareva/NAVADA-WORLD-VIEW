@@ -26,6 +26,7 @@ import {
   MacroSignalsPanel,
   ETFFlowsPanel,
   StablecoinPanel,
+  JobLossesPanel,
   UcdpEventsPanel,
   DisplacementPanel,
   ClimateAnomalyPanel,
@@ -675,6 +676,7 @@ export class PanelLayoutManager implements AppModule {
       this.ctx.panels['macro-signals'] = new MacroSignalsPanel();
       this.ctx.panels['etf-flows'] = new ETFFlowsPanel();
       this.ctx.panels['stablecoins'] = new StablecoinPanel();
+      this.ctx.panels['job-losses'] = new JobLossesPanel();
     }
 
     if (this.ctx.isDesktopApp) {

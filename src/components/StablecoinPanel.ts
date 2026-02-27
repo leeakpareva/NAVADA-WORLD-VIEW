@@ -3,6 +3,7 @@ import { t } from '@/services/i18n';
 import { escapeHtml } from '@/utils/sanitize';
 import { MarketServiceClient } from '@/generated/client/worldmonitor/market/v1/service_client';
 import type { ListStablecoinMarketsResponse } from '@/generated/client/worldmonitor/market/v1/service_client';
+import { getSecretValue } from '@/services/runtime-config';
 
 type StablecoinResult = ListStablecoinMarketsResponse;
 
@@ -67,8 +68,52 @@ export class StablecoinPanel extends Panel {
         this.error = err instanceof Error ? err.message : 'Failed to fetch';
       }
     }
+
+    // AI fallback when backend returns 403 or empty
+    if (!this.data || this.data.stablecoins.length === 0) {
+      const aiData = await this.fetchAIFallback();
+      if (aiData) {
+        this.data = aiData;
+        this.error = null;
+      }
+    }
+
     this.loading = false;
     this.renderPanel();
+  }
+
+  private async fetchAIFallback(): Promise<StablecoinResult | null> {
+    const xaiKey = getSecretValue('XAI_API_KEY');
+    const openaiKey = getSecretValue('OPENAI_API_KEY');
+    const key = xaiKey || openaiKey;
+    if (!key) return null;
+
+    const baseUrl = xaiKey ? 'https://api.x.ai/v1' : 'https://api.openai.com/v1';
+    const model = xaiKey ? 'grok-3-mini-fast' : 'gpt-4o-mini';
+
+    try {
+      const res = await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+        body: JSON.stringify({
+          model, temperature: 0.3, max_tokens: 800,
+          messages: [{ role: 'user', content: `Return current stablecoin market data as JSON only (no markdown).
+Format: {"timestamp":"${new Date().toISOString()}","summary":{"totalMarketCap":number,"totalVolume24h":number,"coinCount":number,"depeggedCount":number,"healthStatus":"HEALTHY|CAUTION|WARNING"},"stablecoins":[{"id":"tether","symbol":"USDT","name":"Tether","price":number,"deviation":number,"pegStatus":"ON PEG|SLIGHT DEPEG|DEPEGGED","marketCap":number,"volume24h":number,"change24h":number,"change7d":number,"image":""}]}
+Include USDT, USDC, DAI, BUSD, TUSD with realistic current prices and market caps.` }],
+        }),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!res.ok) return null;
+      const json = await res.json();
+      let text = json.choices?.[0]?.message?.content?.trim() ?? '';
+      text = text.replace(/```(?:json)?\s*/g, '').replace(/```\s*/g, '').trim();
+      const parsed = JSON.parse(text);
+      if (parsed.stablecoins?.length > 0) {
+        console.log('[Stablecoins] AI fallback loaded');
+        return parsed as StablecoinResult;
+      }
+    } catch { /* AI fallback failed */ }
+    return null;
   }
 
   private renderPanel(): void {

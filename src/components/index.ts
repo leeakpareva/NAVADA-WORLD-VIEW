@@ -47,3 +47,4 @@ export * from './AICompaniesPanel';
 export * from './BitcoinPricePanel';
 export * from './CountdownPanel';
 export * from './UKDebtGDPPanel';
+export * from './JobLossesPanel';

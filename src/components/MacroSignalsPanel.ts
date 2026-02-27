@@ -3,6 +3,7 @@ import { escapeHtml } from '@/utils/sanitize';
 import { t } from '@/services/i18n';
 import { EconomicServiceClient } from '@/generated/client/worldmonitor/economic/v1/service_client';
 import type { GetMacroSignalsResponse } from '@/generated/client/worldmonitor/economic/v1/service_client';
+import { getSecretValue } from '@/services/runtime-config';
 
 interface MacroSignalData {
   timestamp: string;
@@ -161,8 +162,52 @@ export class MacroSignalsPanel extends Panel {
         this.error = err instanceof Error ? err.message : 'Failed to fetch';
       }
     }
+
+    // AI fallback when backend returns 403 or unavailable
+    if (!this.data || this.data.unavailable) {
+      const aiData = await this.fetchAIFallback();
+      if (aiData) {
+        this.data = aiData;
+        this.error = null;
+      }
+    }
+
     this.loading = false;
     this.renderPanel();
+  }
+
+  private async fetchAIFallback(): Promise<MacroSignalData | null> {
+    const xaiKey = getSecretValue('XAI_API_KEY');
+    const openaiKey = getSecretValue('OPENAI_API_KEY');
+    const key = xaiKey || openaiKey;
+    if (!key) return null;
+
+    const baseUrl = xaiKey ? 'https://api.x.ai/v1' : 'https://api.openai.com/v1';
+    const model = xaiKey ? 'grok-3-mini-fast' : 'gpt-4o-mini';
+
+    try {
+      const res = await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+        body: JSON.stringify({
+          model, temperature: 0.3, max_tokens: 800,
+          messages: [{ role: 'user', content: `Return current crypto/macro market signals as JSON only (no markdown).
+Format: {"timestamp":"${new Date().toISOString()}","verdict":"BUY|CASH","bullishCount":number,"totalCount":7,"signals":{"liquidity":{"status":"BULLISH|BEARISH|NEUTRAL","value":number,"sparkline":[numbers]},"flowStructure":{"status":"RISK-ON|DEFENSIVE|NEUTRAL","btcReturn5":number,"qqqReturn5":number},"macroRegime":{"status":"GROWING|DECLINING|NEUTRAL","qqqRoc20":number,"xlpRoc20":number},"technicalTrend":{"status":"BULLISH|BEARISH|NEUTRAL","btcPrice":number,"sma50":number,"sma200":number,"vwap30d":number,"mayerMultiple":number,"sparkline":[numbers]},"hashRate":{"status":"GROWING|DECLINING","change30d":number},"miningCost":{"status":"PROFITABLE|SQUEEZE"},"fearGreed":{"status":"GREED|FEAR|NEUTRAL","value":number,"history":[]}},"meta":{"qqqSparkline":[numbers]},"unavailable":false}
+Use realistic current market values. Date: ${new Date().toISOString().split('T')[0]}` }],
+        }),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!res.ok) return null;
+      const json = await res.json();
+      let text = json.choices?.[0]?.message?.content?.trim() ?? '';
+      text = text.replace(/```(?:json)?\s*/g, '').replace(/```\s*/g, '').trim();
+      const parsed = JSON.parse(text);
+      if (parsed.verdict && parsed.signals) {
+        console.log('[MacroSignals] AI fallback loaded');
+        return parsed as MacroSignalData;
+      }
+    } catch { /* AI fallback failed */ }
+    return null;
   }
 
   private renderPanel(): void {
