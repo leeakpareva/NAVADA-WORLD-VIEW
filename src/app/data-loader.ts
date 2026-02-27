@@ -107,6 +107,7 @@ import { checkMilestones } from '@/services/celebration';
 import { fetchHappinessScores } from '@/services/happiness-data';
 import { fetchRenewableInstallations } from '@/services/renewable-installations';
 import { filterBySentiment } from '@/services/sentiment-gate';
+import { getAIStocks, getAICommodities, getAICrypto, getAISectors, isAIMarketAvailable } from '@/services/market-ai-fallback';
 import { fetchAllPositiveTopicIntelligence } from '@/services/gdelt-intel';
 import { fetchPositiveGeoEvents, geocodePositiveNewsItems } from '@/services/positive-events-geo';
 import { fetchKindnessData } from '@/services/kindness-data';
@@ -648,13 +649,45 @@ export class DataLoaderManager implements AppModule {
       });
 
       const finnhubConfigMsg = 'FINNHUB_API_KEY not configured — add in Settings';
+      let commoditiesLoaded = false;
       this.ctx.latestMarkets = stocksResult.data;
       (this.ctx.panels['markets'] as MarketPanel).renderMarkets(stocksResult.data, stocksResult.rateLimited);
 
       if (stocksResult.rateLimited && stocksResult.data.length === 0) {
-        const rlMsg = 'Market data temporarily unavailable (rate limited) — retrying shortly';
-        this.ctx.panels['heatmap']?.showError(rlMsg);
-        this.ctx.panels['commodities']?.showError(rlMsg);
+        // AI fallback: generate approximate market data when rate-limited
+        if (isAIMarketAvailable()) {
+          console.log('[DataLoader] Rate limited — using AI market fallback');
+          try {
+            const [aiStocks, aiCommodities, aiSectors] = await Promise.all([
+              getAIStocks(),
+              getAICommodities(),
+              getAISectors(),
+            ]);
+            if (aiStocks.length > 0) {
+              const aiMarketData = aiStocks.map(s => ({ ...s, sparkline: undefined }));
+              this.ctx.latestMarkets = aiMarketData;
+              (this.ctx.panels['markets'] as MarketPanel).renderMarkets(aiMarketData);
+            }
+            if (aiCommodities.length > 0) {
+              (this.ctx.panels['commodities'] as CommoditiesPanel).renderCommodities(
+                aiCommodities.map(c => ({ display: c.display, price: c.price, change: c.change, sparkline: undefined }))
+              );
+              commoditiesLoaded = true;
+            }
+            if (aiSectors.length > 0) {
+              (this.ctx.panels['heatmap'] as HeatmapPanel).renderHeatmap(aiSectors);
+            }
+          } catch (e) {
+            console.warn('[DataLoader] AI market fallback failed:', e);
+            const rlMsg = 'Market data temporarily unavailable (rate limited) — retrying shortly';
+            this.ctx.panels['heatmap']?.showError(rlMsg);
+            this.ctx.panels['commodities']?.showError(rlMsg);
+          }
+        } else {
+          const rlMsg = 'Market data temporarily unavailable (rate limited) — retrying shortly';
+          this.ctx.panels['heatmap']?.showError(rlMsg);
+          this.ctx.panels['commodities']?.showError(rlMsg);
+        }
       } else if (stocksResult.skipped) {
         this.ctx.statusPanel?.updateApi('Finnhub', { status: 'error' });
         if (stocksResult.data.length === 0) {
@@ -682,7 +715,7 @@ export class DataLoaderManager implements AppModule {
       const commoditiesPanel = this.ctx.panels['commodities'] as CommoditiesPanel;
       const mapCommodity = (c: MarketData) => ({ display: c.display, price: c.price, change: c.change, sparkline: c.sparkline });
 
-      let commoditiesLoaded = stocksResult.rateLimited && stocksResult.data.length === 0;
+      commoditiesLoaded = commoditiesLoaded || !!(stocksResult.rateLimited && stocksResult.data.length === 0);
       for (let attempt = 0; attempt < 3 && !commoditiesLoaded; attempt++) {
         if (attempt > 0) {
           commoditiesPanel.showRetrying();
@@ -710,6 +743,18 @@ export class DataLoaderManager implements AppModule {
         (this.ctx.panels['crypto'] as CryptoPanel).showRetrying();
         await new Promise(r => setTimeout(r, 20_000));
         crypto = await fetchCrypto();
+      }
+      // AI fallback for crypto when CoinGecko fails
+      if (crypto.length === 0 && isAIMarketAvailable()) {
+        console.log('[DataLoader] CoinGecko failed — using AI crypto fallback');
+        try {
+          const aiCrypto = await getAICrypto();
+          if (aiCrypto.length > 0) {
+            crypto = aiCrypto.map(c => ({ ...c, sparkline: undefined }));
+          }
+        } catch (e) {
+          console.warn('[DataLoader] AI crypto fallback failed:', e);
+        }
       }
       (this.ctx.panels['crypto'] as CryptoPanel).renderCrypto(crypto);
       this.ctx.statusPanel?.updateApi('CoinGecko', { status: crypto.length > 0 ? 'ok' : 'error' });

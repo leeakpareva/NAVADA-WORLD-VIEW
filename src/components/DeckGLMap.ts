@@ -360,7 +360,7 @@ export class DeckGLMap {
       if (this.renderPaused || this.webglLost || !this.maplibreMap) return;
       this.maplibreMap.resize();
       try { this.deckOverlay?.setProps({ layers: this.buildLayers() }); } catch { /* map mid-teardown */ }
-    }, 150);
+    }, 400);
     this.rafUpdateLayers = rafSchedule(() => {
       if (this.renderPaused || this.webglLost || !this.maplibreMap) return;
       try { this.deckOverlay?.setProps({ layers: this.buildLayers() }); } catch { /* map mid-teardown */ }
@@ -440,6 +440,8 @@ export class DeckGLMap {
       style: initialTheme === 'light' ? LIGHT_STYLE : DARK_STYLE,
       center: [preset.longitude, preset.latitude],
       zoom: preset.zoom,
+      minZoom: 0.5,
+      maxZoom: 18,
       renderWorldCopies: false,
       attributionControl: false,
       interactive: true,
@@ -475,7 +477,7 @@ export class DeckGLMap {
       getTooltip: (info: PickingInfo) => this.getTooltip(info),
       onClick: (info: PickingInfo) => this.handleClick(info),
       pickingRadius: 10,
-      useDevicePixels: window.devicePixelRatio > 2 ? 2 : true,
+      useDevicePixels: window.devicePixelRatio > 1.5 ? 1.5 : true,
       onError: (error: Error) => console.warn('[DeckGLMap] Render error (non-fatal):', error.message),
     });
 
@@ -489,24 +491,20 @@ export class DeckGLMap {
     });
 
     this.maplibreMap.on('moveend', () => {
-      this.lastSCZoom = -1;
-      this.rafUpdateLayers();
+      if (this.moveTimeoutId) clearTimeout(this.moveTimeoutId);
+      this.moveTimeoutId = setTimeout(() => {
+        this.lastSCZoom = -1;
+        this.rafUpdateLayers();
+      }, 200);
     });
 
+    // Coalesce move + zoom into a single delayed update
     this.maplibreMap.on('move', () => {
       if (this.moveTimeoutId) clearTimeout(this.moveTimeoutId);
       this.moveTimeoutId = setTimeout(() => {
         this.lastSCZoom = -1;
         this.rafUpdateLayers();
-      }, 100);
-    });
-
-    this.maplibreMap.on('zoom', () => {
-      if (this.moveTimeoutId) clearTimeout(this.moveTimeoutId);
-      this.moveTimeoutId = setTimeout(() => {
-        this.lastSCZoom = -1;
-        this.rafUpdateLayers();
-      }, 100);
+      }, 300);
     });
 
     this.maplibreMap.on('zoomend', () => {
@@ -2312,7 +2310,7 @@ export class DeckGLMap {
 
   private startPulseAnimation(): void {
     if (this.newsPulseIntervalId !== null) return;
-    const PULSE_UPDATE_INTERVAL_MS = 500;
+    const PULSE_UPDATE_INTERVAL_MS = 2000;
 
     this.newsPulseIntervalId = setInterval(() => {
       const now = Date.now();
@@ -2972,6 +2970,12 @@ export class DeckGLMap {
           <option value="oceania">${t('components.deckgl.views.oceania')}</option>
         </select>
       </div>
+      <div class="style-buttons">
+        <button class="map-btn style-btn active" data-style="dark" title="Dark">🌑</button>
+        <button class="map-btn style-btn" data-style="light" title="Light">☀️</button>
+        <button class="map-btn style-btn" data-style="positron" title="Positron">🗺️</button>
+        <button class="map-btn style-btn" data-style="multi" title="Multi-Colour Continents">🌈</button>
+      </div>
     `;
 
     this.container.appendChild(controls);
@@ -2988,6 +2992,27 @@ export class DeckGLMap {
     viewSelect.value = this.state.view;
     viewSelect.addEventListener('change', () => {
       this.setView(viewSelect.value as DeckMapView);
+    });
+
+    controls.querySelectorAll('.style-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const style = (btn as HTMLElement).dataset.style!;
+        controls.querySelectorAll('.style-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        if (style === 'multi') {
+          this.applyMultiColourTheme();
+          return;
+        }
+
+        const styleUrl = MAP_STYLES[style];
+        if (styleUrl && this.maplibreMap) {
+          this.maplibreMap.setStyle(styleUrl);
+          this.maplibreMap.once('style.load', () => {
+            this.rafUpdateLayers();
+          });
+        }
+      });
     });
   }
 
@@ -3472,6 +3497,51 @@ export class DeckGLMap {
 
   public getState(): DeckMapState {
     return { ...this.state };
+  }
+
+  private applyMultiColourTheme(): void {
+    if (!this.maplibreMap) return;
+    // Start with dark basemap then paint continents
+    this.maplibreMap.setStyle(MAP_STYLES['dark']!);
+    this.maplibreMap.once('style.load', () => {
+      const map = this.maplibreMap!;
+      // GeoJSON with continent bounding polygons (simplified)
+      const continentGeo: GeoJSON.FeatureCollection = {
+        type: 'FeatureCollection',
+        features: [
+          { type: 'Feature', properties: { name: 'North America', color: '#e53935' }, geometry: { type: 'Polygon', coordinates: [[[-170,72],[-50,72],[-50,15],[-100,7],[-170,15],[-170,72]]] } },
+          { type: 'Feature', properties: { name: 'South America', color: '#43a047' }, geometry: { type: 'Polygon', coordinates: [[[-82,13],[-34,13],[-34,-56],[-75,-56],[-82,13]]] } },
+          { type: 'Feature', properties: { name: 'Europe', color: '#1e88e5' }, geometry: { type: 'Polygon', coordinates: [[[-25,72],[45,72],[45,35],[-25,35],[-25,72]]] } },
+          { type: 'Feature', properties: { name: 'Africa', color: '#ff9800' }, geometry: { type: 'Polygon', coordinates: [[[-18,37],[52,37],[52,-35],[8,-35],[-18,37]]] } },
+          { type: 'Feature', properties: { name: 'Asia', color: '#ab47bc' }, geometry: { type: 'Polygon', coordinates: [[[45,72],[180,72],[180,0],[90,0],[45,10],[45,72]]] } },
+          { type: 'Feature', properties: { name: 'Oceania', color: '#00bcd4' }, geometry: { type: 'Polygon', coordinates: [[[110,0],[180,0],[180,-50],[110,-50],[110,0]]] } },
+        ],
+      };
+      if (!map.getSource('continent-colors')) {
+        map.addSource('continent-colors', { type: 'geojson', data: continentGeo });
+        const firstLayerId = map.getStyle().layers?.[1]?.id ?? undefined;
+        map.addLayer({
+          id: 'continent-fill',
+          type: 'fill',
+          source: 'continent-colors',
+          paint: {
+            'fill-color': ['get', 'color'],
+            'fill-opacity': 0.12,
+          },
+        }, firstLayerId);
+        map.addLayer({
+          id: 'continent-line',
+          type: 'line',
+          source: 'continent-colors',
+          paint: {
+            'line-color': ['get', 'color'],
+            'line-opacity': 0.3,
+            'line-width': 1,
+          },
+        });
+      }
+      this.rafUpdateLayers();
+    });
   }
 
   // Zoom controls - public for external access

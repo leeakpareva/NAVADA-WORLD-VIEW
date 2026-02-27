@@ -210,15 +210,23 @@ export class CountryIntelManager implements AppModule {
 
       let briefText = '';
       try {
-        const intelClient = new IntelligenceServiceClient('', { fetch: (...args: Parameters<typeof globalThis.fetch>) => globalThis.fetch(...args) });
+        const rpcAbort = new AbortController();
+        const rpcTimeout = setTimeout(() => rpcAbort.abort(), 5000);
+        const intelClient = new IntelligenceServiceClient('', {
+          fetch: (input: RequestInfo | URL, init?: RequestInit) =>
+            globalThis.fetch(input, { ...init, signal: rpcAbort.signal }),
+        });
         const resp = await intelClient.getCountryIntelBrief({ countryCode: code });
+        clearTimeout(rpcTimeout);
         briefText = resp.brief;
-      } catch { /* server unreachable */ }
+      } catch { /* server unreachable or timed out */ }
 
       // xAI Grok fallback: direct API call for country intelligence brief
       if (!briefText && isFeatureAvailable('aiXai')) {
         const xaiKey = getSecretValue('XAI_API_KEY');
         if (xaiKey) {
+          const xaiAbort = new AbortController();
+          const xaiTimeout = setTimeout(() => xaiAbort.abort(), 12000);
           try {
             const briefHeadlines = (context.headlines as string[] | undefined) || [];
             const signalCtx: string[] = [];
@@ -240,6 +248,7 @@ export class CountryIntelManager implements AppModule {
                 max_tokens: 500,
                 messages: [{ role: 'user', content: prompt }],
               }),
+              signal: xaiAbort.signal,
             });
             if (xaiResp.ok) {
               const xaiData = await xaiResp.json();
@@ -251,6 +260,8 @@ export class CountryIntelManager implements AppModule {
             }
           } catch (e) {
             console.warn('[CountryBrief] xAI Grok failed:', e);
+          } finally {
+            clearTimeout(xaiTimeout);
           }
         }
       }
@@ -259,6 +270,8 @@ export class CountryIntelManager implements AppModule {
       if (!briefText) {
         const openaiKey = getSecretValue('OPENAI_API_KEY') || (import.meta as { env?: Record<string, string> }).env?.OPENAI_API_KEY;
         if (openaiKey) {
+          const oaiAbort = new AbortController();
+          const oaiTimeout = setTimeout(() => oaiAbort.abort(), 12000);
           try {
             const briefHeadlines = (context.headlines as string[] | undefined) || [];
             const prompt = `Write a concise 3-paragraph intelligence brief for ${country}. Cover current situation, key risks, and outlook. ${briefHeadlines.length ? `Headlines: ${briefHeadlines.slice(0, 5).join('. ')}` : ''} Date: ${new Date().toISOString().split('T')[0]}`;
@@ -266,13 +279,16 @@ export class CountryIntelManager implements AppModule {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiKey}` },
               body: JSON.stringify({ model: 'gpt-4o-mini', max_tokens: 400, messages: [{ role: 'user', content: prompt }] }),
+              signal: oaiAbort.signal,
             });
             if (oaiResp.ok) {
               const oaiData = await oaiResp.json();
               const oaiBrief = oaiData.choices?.[0]?.message?.content?.trim();
               if (oaiBrief && oaiBrief.length > 30) { briefText = oaiBrief; console.log(`[CountryBrief] OpenAI brief for ${country}`); }
             }
-          } catch { /* OpenAI failed */ }
+          } catch { /* OpenAI failed */ } finally {
+            clearTimeout(oaiTimeout);
+          }
         }
       }
 

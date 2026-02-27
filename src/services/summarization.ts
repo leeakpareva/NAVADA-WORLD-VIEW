@@ -103,6 +103,8 @@ async function tryDirectXai(headlines: string[], geoContext?: string): Promise<S
   if (!isFeatureAvailable('aiXai')) return null;
   const apiKey = getSecretValue('XAI_API_KEY');
   if (!apiKey) return null;
+  const abort = new AbortController();
+  const timeout = setTimeout(() => abort.abort(), 10000);
   try {
     const combined = headlines.slice(0, 8).map(h => h.slice(0, 100)).join('. ');
     const prompt = `Summarize the most important developments in 2-3 concise sentences (under 80 words). ${geoContext ? `Context: ${geoContext}. ` : ''}Headlines: ${combined}`;
@@ -110,6 +112,7 @@ async function tryDirectXai(headlines: string[], geoContext?: string): Promise<S
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
       body: JSON.stringify({ model: 'grok-3-mini-fast', max_tokens: 200, messages: [{ role: 'user', content: prompt }] }),
+      signal: abort.signal,
     });
     if (!resp.ok) return null;
     const data = await resp.json();
@@ -120,12 +123,16 @@ async function tryDirectXai(headlines: string[], geoContext?: string): Promise<S
   } catch (e) {
     console.warn('[Summarization] xAI direct failed:', e);
     return null;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
 async function tryDirectOpenai(headlines: string[], geoContext?: string): Promise<SummarizationResult | null> {
   const apiKey = (import.meta as { env?: Record<string, string> }).env?.OPENAI_API_KEY;
   if (!apiKey) return null;
+  const abort = new AbortController();
+  const timeout = setTimeout(() => abort.abort(), 10000);
   try {
     const combined = headlines.slice(0, 8).map(h => h.slice(0, 100)).join('. ');
     const prompt = `Summarize the most important developments in 2-3 sentences (under 80 words). ${geoContext ? `Context: ${geoContext}. ` : ''}Headlines: ${combined}`;
@@ -133,6 +140,7 @@ async function tryDirectOpenai(headlines: string[], geoContext?: string): Promis
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
       body: JSON.stringify({ model: 'gpt-4o-mini', max_tokens: 200, messages: [{ role: 'user', content: prompt }] }),
+      signal: abort.signal,
     });
     if (!resp.ok) return null;
     const data = await resp.json();
@@ -142,6 +150,8 @@ async function tryDirectOpenai(headlines: string[], geoContext?: string): Promis
     return { summary, provider: 'openai', model: 'gpt-4o-mini', cached: false };
   } catch {
     return null;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
