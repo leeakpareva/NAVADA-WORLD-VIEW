@@ -41,3 +41,6 @@ export * from './InvestmentsPanel';
 export * from './UnifiedSettings';
 export * from './TradePolicyPanel';
 export * from './SupplyChainPanel';
+export * from './UKUnemploymentPanel';
+export * from './GlobalPopulationPanel';
+export * from './AICompaniesPanel';

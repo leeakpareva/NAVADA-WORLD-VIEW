@@ -15782,3 +15782,103 @@ body.has-critical-banner .panels-grid {
     order: 3;
   }
 }
+
+/* ====== UK Unemployment Panel ====== */
+.uk-unemployment-panel { padding: 4px 0; }
+.uk-unemp-header {
+  display: flex; align-items: baseline; gap: 10px; padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.uk-unemp-rate { font-size: 28px; font-weight: 700; color: var(--text); }
+.uk-unemp-change { font-size: 14px; font-weight: 600; }
+.uk-unemp-change.stat-positive { color: var(--green); }
+.uk-unemp-change.stat-negative { color: var(--red); }
+.uk-unemp-period { font-size: 11px; color: var(--text-secondary); margin-left: auto; }
+.uk-unemp-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 1px; padding: 8px 12px;
+}
+.uk-unemp-stat {
+  display: flex; flex-direction: column; gap: 2px; padding: 6px 8px;
+  background: var(--bg-secondary); border-radius: 4px;
+}
+.uk-unemp-label { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+.uk-unemp-value { font-size: 14px; font-weight: 600; color: var(--text); }
+.uk-unemp-source { font-size: 9px; color: var(--text-secondary); padding: 6px 12px; opacity: 0.6; }
+
+/* ====== Global Population Panel ====== */
+.global-pop-panel { padding: 4px 0; }
+.pop-hero { text-align: center; padding: 12px; border-bottom: 1px solid var(--border); }
+.pop-counter {
+  font-size: 26px; font-weight: 700; color: var(--accent);
+  font-variant-numeric: tabular-nums; letter-spacing: 0.5px;
+}
+.pop-subtitle { font-size: 10px; color: var(--text-secondary); margin-top: 2px; text-transform: uppercase; letter-spacing: 1px; }
+.pop-rates {
+  display: flex; justify-content: space-around; padding: 10px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.pop-rate-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.pop-rate-num { font-size: 16px; font-weight: 700; }
+.pop-births .pop-rate-num { color: var(--green); }
+.pop-deaths .pop-rate-num { color: var(--red); }
+.pop-growth .pop-rate-num { color: var(--accent); }
+.pop-rate-label { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; }
+.pop-rate-per1k { font-size: 9px; color: var(--text-secondary); opacity: 0.6; }
+.pop-stats-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 1px; padding: 8px 12px;
+}
+.pop-stat {
+  display: flex; flex-direction: column; gap: 2px; padding: 5px 8px;
+  background: var(--bg-secondary); border-radius: 4px;
+}
+.pop-stat-label { font-size: 9px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+.pop-stat-val { font-size: 13px; font-weight: 600; color: var(--text); }
+.pop-top-countries { padding: 8px 12px; }
+.pop-top-title { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.5px; }
+.pop-country-row {
+  display: flex; align-items: center; gap: 8px; padding: 4px 0;
+  border-bottom: 1px solid var(--border); font-size: 12px;
+}
+.pop-country-row:last-child { border-bottom: none; }
+.pop-country-rank { width: 16px; color: var(--text-secondary); font-weight: 600; }
+.pop-country-name { flex: 1; color: var(--text); font-weight: 500; }
+.pop-country-pop { color: var(--text); font-weight: 600; }
+.pop-country-growth { color: var(--green); font-size: 11px; min-width: 48px; text-align: right; }
+.pop-source { font-size: 9px; color: var(--text-secondary); padding: 6px 12px; opacity: 0.6; }
+
+/* ====== AI Companies Panel ====== */
+.ai-companies-panel { padding: 4px 0; }
+.ai-co-summary {
+  display: grid; grid-template-columns: repeat(2, 1fr);
+  gap: 1px; padding: 8px 12px; border-bottom: 1px solid var(--border);
+}
+.ai-co-stat {
+  display: flex; flex-direction: column; gap: 2px; padding: 6px 8px;
+  background: var(--bg-secondary); border-radius: 4px;
+}
+.ai-co-num { font-size: 13px; font-weight: 700; color: var(--accent); }
+.ai-co-label { font-size: 9px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+.ai-co-list { padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; }
+.ai-co-card {
+  padding: 8px 10px; background: var(--bg-secondary); border-radius: 6px;
+  border-left: 3px solid var(--accent);
+}
+.ai-co-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.ai-co-name { font-size: 13px; font-weight: 600; color: var(--text); }
+.ai-co-badge {
+  font-size: 9px; font-weight: 600; color: #fff; padding: 1px 6px;
+  border-radius: 3px; text-transform: uppercase; letter-spacing: 0.3px;
+}
+.ai-co-meta { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-secondary); flex-wrap: wrap; }
+.ai-co-dot { color: var(--text-secondary); opacity: 0.4; }
+.ai-co-country { font-weight: 500; }
+.ai-co-funding { font-weight: 600; color: var(--green); }
+.ai-co-notable { font-size: 11px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4; }
+.ai-co-source { font-size: 9px; color: var(--text-secondary); padding: 6px 12px; opacity: 0.6; }
+
+/* ====== Header SVG icon alignment ====== */
+.variant-icon { display: inline-flex; align-items: center; justify-content: center; }
+.variant-icon svg { vertical-align: middle; }
+.search-btn svg, .copy-link-btn svg, .fullscreen-btn svg { vertical-align: middle; margin-right: 2px; }
