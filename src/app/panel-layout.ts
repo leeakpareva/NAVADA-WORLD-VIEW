@@ -207,8 +207,6 @@ export class PanelLayoutManager implements AppModule {
       <footer class="navada-footer">
         <div class="footer-left">
           <span class="footer-credit">Developed by <strong>Lee Akpareva MBA, MA</strong></span>
-          <span class="footer-divider">|</span>
-          <span class="footer-origin">Based on <a href="https://github.com/koala73" target="_blank" rel="noopener">World Monitor</a> by Elie Habib</span>
         </div>
         <div class="footer-center">
           <span class="footer-terms">Intelligence data may be delayed or cached. This platform serves as both a command center and learning environment.</span>
@@ -365,7 +363,6 @@ export class PanelLayoutManager implements AppModule {
           <section class="about-section">
             <h2>Credits</h2>
             <p>Developed by <strong>Lee Akpareva MBA, MA</strong> (NAVADA)</p>
-            <p>Based on <a href="https://github.com/koala73/worldmonitor" target="_blank" rel="noopener">World Monitor</a> by Elie Habib</p>
             <p><a href="https://github.com/leeakpareva" target="_blank" rel="noopener">github.com/leeakpareva</a></p>
           </section>
         </div>

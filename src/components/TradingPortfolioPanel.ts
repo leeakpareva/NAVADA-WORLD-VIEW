@@ -56,7 +56,7 @@ export class TradingPortfolioPanel extends Panel {
     super.destroy();
   }
 
-  private async loadData(): Promise<void> {
+  private async loadData(retries = 2): Promise<void> {
     try {
       const [acctRes, portfolioRes, statusRes] = await Promise.all([
         fetch('/api/trading/account', { signal: this.signal }),
@@ -83,6 +83,10 @@ export class TradingPortfolioPanel extends Panel {
       this.flashUpdate();
     } catch (err) {
       if (this.isAbortError(err)) return;
+      if (retries > 0) {
+        await new Promise(r => setTimeout(r, 3000));
+        return this.loadData(retries - 1);
+      }
       console.error('[TradingPortfolioPanel] Failed:', err);
       this.showError('Trading API unavailable');
       this.setDataBadge('unavailable');

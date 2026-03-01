@@ -47,7 +47,7 @@ export class TradingSignalsPanel extends Panel {
     super.destroy();
   }
 
-  private async loadData(): Promise<void> {
+  private async loadData(retries = 2): Promise<void> {
     try {
       const [sigRes, statusRes] = await Promise.all([
         fetch('/api/trading/signals', { signal: this.signal }),
@@ -64,6 +64,10 @@ export class TradingSignalsPanel extends Panel {
       this.flashUpdate();
     } catch (err) {
       if (this.isAbortError(err)) return;
+      if (retries > 0) {
+        await new Promise(r => setTimeout(r, 3000));
+        return this.loadData(retries - 1);
+      }
       console.error('[TradingSignalsPanel] Failed:', err);
       this.showError('Trading API unavailable');
       this.setDataBadge('unavailable');
