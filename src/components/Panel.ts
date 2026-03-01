@@ -356,7 +356,15 @@ export class Panel {
     this.pendingContentHtml = null;
     if (this.content.innerHTML !== html) {
       this.content.innerHTML = html;
+      this.flashUpdate();
     }
+  }
+
+  /** Brief visual flash to indicate data refreshed */
+  public flashUpdate(): void {
+    this.element.classList.remove('panel-refreshed');
+    void this.element.offsetWidth; // force reflow to restart animation
+    this.element.classList.add('panel-refreshed');
   }
 
   public show(): void {

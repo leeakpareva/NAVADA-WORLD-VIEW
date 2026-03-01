@@ -7,7 +7,7 @@ import type {
 } from '@/services/trade';
 import { t } from '@/services/i18n';
 import { escapeHtml } from '@/utils/sanitize';
-import { isFeatureAvailable } from '@/services/runtime-config';
+import { isFeatureAvailable, getSecretValue } from '@/services/runtime-config';
 import { isDesktopRuntime } from '@/services/runtime';
 
 type TabId = 'restrictions' | 'tariffs' | 'flows' | 'barriers';
@@ -18,7 +18,6 @@ export class TradePolicyPanel extends Panel {
   private flowsData: GetTradeFlowsResponse | null = null;
   private barriersData: GetTradeBarriersResponse | null = null;
   private activeTab: TabId = 'restrictions';
-
   constructor() {
     super({ id: 'trade-policy', title: t('panels.tradePolicy') });
     this.content.addEventListener('click', (e) => {
@@ -30,6 +29,54 @@ export class TradePolicyPanel extends Panel {
         this.render();
       }
     });
+    setTimeout(() => this.checkAndLoadAI(), 8000);
+  }
+
+  private async checkAndLoadAI(): Promise<void> {
+    const hasData = (this.restrictionsData?.restrictions.length ?? 0) > 0;
+    if (hasData) return;
+    console.log('[TradePolicy] No proto data — loading AI fallback');
+    await this.fetchAIFallback();
+  }
+
+  private async fetchAIFallback(): Promise<void> {
+    const xaiKey = getSecretValue('XAI_API_KEY');
+    const openaiKey = getSecretValue('OPENAI_API_KEY');
+    const key = xaiKey || openaiKey;
+    if (!key) return;
+    const baseUrl = xaiKey ? 'https://api.x.ai/v1' : 'https://api.openai.com/v1';
+    const model = xaiKey ? 'grok-3-mini-fast' : 'gpt-4o-mini';
+    try {
+      const res = await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+        body: JSON.stringify({
+          model, temperature: 0.3, max_tokens: 2000,
+          messages: [{ role: 'user', content: `Return current global trade policy data as JSON only (no markdown). Date: ${new Date().toISOString().split('T')[0]}.
+Format: {"restrictions":[{"reportingCountry":"United States","measureType":"Section 301 Tariffs","status":"high","productSector":"Technology, Steel","description":"Tariffs on Chinese imports","affectedCountry":"China","notifiedAt":"2024-05","sourceUrl":""}],"tariffs":[{"year":2025,"tariffRate":8.5,"productSector":"All Goods"}],"flows":[{"year":2025,"exportValueUsd":148000,"importValueUsd":427000,"yoyExportChange":-2.1,"yoyImportChange":3.5}],"barriers":[{"notifyingCountry":"EU","measureType":"SPS","title":"CBAM Carbon Border Adjustment","productDescription":"Steel, Cement, Aluminum","objective":"Climate protection","dateDistributed":"2024-12","sourceUrl":""}]}
+Include 5-6 restrictions (US-China tariffs, EU CBAM, China rare earth controls, India electronics duties, Russia sanctions), 6 tariff years (2020-2025), 3 trade flows, 3 barriers. Use realistic current values.` }],
+        }),
+        signal: AbortSignal.timeout(30000),
+      });
+      if (!res.ok) return;
+      const json = await res.json();
+      let text = json.choices?.[0]?.message?.content?.trim() ?? '';
+      text = text.replace(/```(?:json)?\s*/g, '').replace(/```\s*/g, '').trim();
+      const parsed = JSON.parse(text);
+      if (parsed.restrictions?.length > 0) {
+        this.updateRestrictions({ restrictions: parsed.restrictions, fetchedAt: new Date().toISOString(), upstreamUnavailable: false } as any);
+      }
+      if (parsed.tariffs?.length > 0) {
+        this.updateTariffs({ datapoints: parsed.tariffs, fetchedAt: new Date().toISOString(), upstreamUnavailable: false } as any);
+      }
+      if (parsed.flows?.length > 0) {
+        this.updateFlows({ flows: parsed.flows, fetchedAt: new Date().toISOString(), upstreamUnavailable: false } as any);
+      }
+      if (parsed.barriers?.length > 0) {
+        this.updateBarriers({ barriers: parsed.barriers, fetchedAt: new Date().toISOString(), upstreamUnavailable: false } as any);
+      }
+      console.log('[TradePolicy] AI fallback loaded');
+    } catch (e) { console.warn('[TradePolicy] AI fallback failed:', e); }
   }
 
   public updateRestrictions(data: GetTradeRestrictionsResponse): void {

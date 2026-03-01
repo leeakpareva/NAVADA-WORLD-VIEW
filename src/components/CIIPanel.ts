@@ -6,8 +6,8 @@ import { h, replaceChildren, rawHtml } from '@/utils/dom-utils';
 
 export class CIIPanel extends Panel {
   private scores: CountryScore[] = [];
-  private focalPointsReady = false;
   private onShareStory?: (code: string, name: string) => void;
+  private initialRefreshDone = false;
 
   constructor() {
     super({
@@ -16,6 +16,12 @@ export class CIIPanel extends Panel {
       infoTooltip: t('components.cii.infoTooltip'),
     });
     this.showLoading(t('common.loading'));
+    // Auto-refresh from baseline data after a short delay to allow initial data ingestion
+    setTimeout(() => {
+      if (!this.initialRefreshDone) {
+        this.refresh(true);
+      }
+    }, 5000);
   }
 
   public setShareStoryHandler(handler: (code: string, name: string) => void): void {
@@ -95,14 +101,10 @@ export class CIIPanel extends Panel {
   }
 
   public async refresh(forceLocal = false): Promise<void> {
-    if (!this.focalPointsReady && !forceLocal) {
-      return;
-    }
-
     if (forceLocal) {
-      this.focalPointsReady = true;
       console.log('[CIIPanel] Focal points ready, calculating scores...');
     }
+    this.initialRefreshDone = true;
 
     this.showLoading();
 
@@ -122,6 +124,7 @@ export class CIIPanel extends Panel {
 
       const listEl = h('div', { className: 'cii-list' }, ...withData.map(s => this.buildCountry(s)));
       replaceChildren(this.content, listEl);
+      this.flashUpdate();
       this.bindShareButtons();
     } catch (error) {
       console.error('[CIIPanel] Refresh error:', error);

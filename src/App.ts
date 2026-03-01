@@ -223,7 +223,6 @@ export class App {
       exportPanel: null,
       unifiedSettings: null,
       mobileWarningModal: null,
-      pizzintIndicator: null,
       countryBriefPage: null,
       countryTimeline: null,
       positivePanel: null,
@@ -347,7 +346,6 @@ export class App {
     this.eventHandlers.setupMobileWarning();
     this.eventHandlers.setupPlaybackControl();
     this.eventHandlers.setupStatusPanel();
-    this.eventHandlers.setupPizzIntIndicator();
     this.eventHandlers.setupExportPanel();
     this.eventHandlers.setupUnifiedSettings();
 
@@ -479,7 +477,6 @@ export class App {
       this.refreshScheduler.registerAll([
         { name: 'markets', fn: () => this.dataLoader.loadMarkets(), intervalMs: REFRESH_INTERVALS.markets },
         { name: 'predictions', fn: () => this.dataLoader.loadPredictions(), intervalMs: REFRESH_INTERVALS.predictions },
-        { name: 'pizzint', fn: () => this.dataLoader.loadPizzInt(), intervalMs: 10 * 60 * 1000 },
         { name: 'natural', fn: () => this.dataLoader.loadNatural(), intervalMs: 5 * 60 * 1000, condition: () => this.state.mapLayers.natural },
         { name: 'weather', fn: () => this.dataLoader.loadWeatherAlerts(), intervalMs: 10 * 60 * 1000, condition: () => this.state.mapLayers.weather },
         { name: 'fred', fn: () => this.dataLoader.loadFredData(), intervalMs: 30 * 60 * 1000 },

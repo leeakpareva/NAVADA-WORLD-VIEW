@@ -140,31 +140,19 @@ export class MacroSignalsPanel extends Panel {
   }
 
   private async fetchData(): Promise<void> {
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        const res = await economicClient.getMacroSignals({});
-        this.data = mapProtoToData(res);
-        this.error = null;
-
-        if (this.data && this.data.unavailable && attempt < 2) {
-          this.showRetrying();
-          await new Promise(r => setTimeout(r, 20_000));
-          continue;
-        }
-        break;
-      } catch (err) {
-        if (this.isAbortError(err)) return;
-        if (attempt < 2) {
-          this.showRetrying();
-          await new Promise(r => setTimeout(r, 20_000));
-          continue;
-        }
-        this.error = err instanceof Error ? err.message : 'Failed to fetch';
-      }
+    try {
+      const res = await economicClient.getMacroSignals({});
+      this.data = mapProtoToData(res);
+      this.error = null;
+    } catch (err) {
+      if (this.isAbortError(err)) return;
+      console.warn('[MacroSignals] Proto API failed:', err instanceof Error ? err.message : err);
+      this.error = err instanceof Error ? err.message : 'Failed to fetch';
     }
 
-    // AI fallback when backend returns 403 or unavailable
+    // AI fallback when backend returns 404/403 or unavailable
     if (!this.data || this.data.unavailable) {
+      console.log('[MacroSignals] No data from API — trying AI fallback');
       const aiData = await this.fetchAIFallback();
       if (aiData) {
         this.data = aiData;
@@ -195,7 +183,7 @@ export class MacroSignalsPanel extends Panel {
 Format: {"timestamp":"${new Date().toISOString()}","verdict":"BUY|CASH","bullishCount":number,"totalCount":7,"signals":{"liquidity":{"status":"BULLISH|BEARISH|NEUTRAL","value":number,"sparkline":[numbers]},"flowStructure":{"status":"RISK-ON|DEFENSIVE|NEUTRAL","btcReturn5":number,"qqqReturn5":number},"macroRegime":{"status":"GROWING|DECLINING|NEUTRAL","qqqRoc20":number,"xlpRoc20":number},"technicalTrend":{"status":"BULLISH|BEARISH|NEUTRAL","btcPrice":number,"sma50":number,"sma200":number,"vwap30d":number,"mayerMultiple":number,"sparkline":[numbers]},"hashRate":{"status":"GROWING|DECLINING","change30d":number},"miningCost":{"status":"PROFITABLE|SQUEEZE"},"fearGreed":{"status":"GREED|FEAR|NEUTRAL","value":number,"history":[]}},"meta":{"qqqSparkline":[numbers]},"unavailable":false}
 Use realistic current market values. Date: ${new Date().toISOString().split('T')[0]}` }],
         }),
-        signal: AbortSignal.timeout(15000),
+        signal: AbortSignal.timeout(30000),
       });
       if (!res.ok) return null;
       const json = await res.json();
@@ -206,7 +194,7 @@ Use realistic current market values. Date: ${new Date().toISOString().split('T')
         console.log('[MacroSignals] AI fallback loaded');
         return parsed as MacroSignalData;
       }
-    } catch { /* AI fallback failed */ }
+    } catch (e) { console.warn('[MacroSignals] AI fallback error:', e); }
     return null;
   }
 

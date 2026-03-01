@@ -1,538 +1,403 @@
 import { Panel } from './Panel';
 import { escapeHtml } from '@/utils/sanitize';
-import { fetchCachedTheaterPosture, type CachedTheaterPosture } from '@/services/cached-theater-posture';
-import { fetchMilitaryVessels } from '@/services/military-vessels';
-import { recalcPostureWithVessels, type TheaterPostureSummary } from '@/services/military-surge';
-import { t } from '../services/i18n';
+
+interface CareerDomain {
+  id: string;
+  name: string;
+  icon: string;
+  level: 'dominant' | 'strong' | 'established';
+  score: number; // 0-100
+  years: number;
+  highlights: string[];
+  tools: string[];
+}
+
+interface CareerMetric {
+  label: string;
+  value: string;
+  icon: string;
+}
 
 export class StrategicPosturePanel extends Panel {
-  private postures: TheaterPostureSummary[] = [];
   private refreshInterval: ReturnType<typeof setInterval> | null = null;
-  private vesselTimeouts: ReturnType<typeof setTimeout>[] = [];
-  private loadingElapsedInterval: ReturnType<typeof setInterval> | null = null;
-  private loadingStartTime: number = 0;
-  private onLocationClick?: (lat: number, lon: number) => void;
-  private lastTimestamp: string = '';
-  private isStale: boolean = false;
 
   constructor() {
     super({
       id: 'strategic-posture',
-      title: t('panels.strategicPosture'),
+      title: 'AI Strategic Position',
       showCount: false,
       trackActivity: true,
-      infoTooltip: t('components.strategicPosture.infoTooltip'),
+      infoTooltip: 'Lee Akpareva — Principal AI Consultant & Full-Stack Engineer. 17+ years across AI/ML, cloud architecture, full-stack development, and enterprise leadership.',
     });
-    this.init();
-  }
-
-  private init(): void {
-    this.showLoading();
-    void this.fetchAndRender();
+    this.render();
     this.startAutoRefresh();
-    // Re-augment with vessels after stream has had time to populate
-    // AIS data accumulates gradually - check at 30s, 60s, 90s, 120s
-    this.vesselTimeouts.push(setTimeout(() => this.reaugmentVessels(), 30 * 1000));
-    this.vesselTimeouts.push(setTimeout(() => this.reaugmentVessels(), 60 * 1000));
-    this.vesselTimeouts.push(setTimeout(() => this.reaugmentVessels(), 90 * 1000));
-    this.vesselTimeouts.push(setTimeout(() => this.reaugmentVessels(), 120 * 1000));
   }
 
   private startAutoRefresh(): void {
     this.refreshInterval = setInterval(() => {
-      if (!this.isPanelVisible()) return;
-      void this.fetchAndRender();
-    }, 15 * 60 * 1000);
-  }
-
-  private isPanelVisible(): boolean {
-    return !this.element.classList.contains('hidden');
-  }
-
-  private async reaugmentVessels(): Promise<void> {
-    if (!this.isPanelVisible() || this.postures.length === 0) return;
-    console.log('[StrategicPosturePanel] Re-augmenting with vessels...');
-    await this.augmentWithVessels();
-    this.render();
-  }
-
-  public override showLoading(): void {
-    this.loadingStartTime = Date.now();
-    this.setContent(`
-      <div class="posture-panel">
-        <div class="posture-loading">
-          <div class="posture-loading-radar">
-            <div class="posture-radar-sweep"></div>
-            <div class="posture-radar-dot"></div>
-          </div>
-          <div class="posture-loading-title">${t('components.strategicPosture.scanningTheaters')}</div>
-          <div class="posture-loading-stages">
-            <div class="posture-stage active">
-              <span class="posture-stage-dot"></span>
-              <span>${t('components.strategicPosture.positions')}</span>
-            </div>
-            <div class="posture-stage pending">
-              <span class="posture-stage-dot"></span>
-              <span>${t('components.strategicPosture.navalVesselsLoading')}</span>
-            </div>
-            <div class="posture-stage pending">
-              <span class="posture-stage-dot"></span>
-              <span>${t('components.strategicPosture.theaterAnalysis')}</span>
-            </div>
-          </div>
-          <div class="posture-loading-tip">${t('components.strategicPosture.connectingStreams')}</div>
-          <div class="posture-loading-elapsed">${t('components.strategicPosture.elapsed', { elapsed: '0' })}</div>
-          <div class="posture-loading-note">${t('components.strategicPosture.initialLoadNote')}</div>
-        </div>
-      </div>
-    `);
-    this.startLoadingTimer();
-  }
-
-  private startLoadingTimer(): void {
-    if (this.loadingElapsedInterval) clearInterval(this.loadingElapsedInterval);
-    this.loadingElapsedInterval = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - this.loadingStartTime) / 1000);
-      const elapsedEl = this.content.querySelector('.posture-loading-elapsed');
-      if (elapsedEl) {
-        elapsedEl.textContent = t('components.strategicPosture.elapsed', { elapsed: String(elapsed) });
+      if (!this.element.classList.contains('hidden')) {
+        this.render();
       }
-    }, 1000);
+    }, 60 * 60 * 1000); // refresh every hour (static data, just updates timestamp)
   }
 
-  private stopLoadingTimer(): void {
-    if (this.loadingElapsedInterval) {
-      clearInterval(this.loadingElapsedInterval);
-      this.loadingElapsedInterval = null;
-    }
+  private getDomains(): CareerDomain[] {
+    return [
+      {
+        id: 'ai-ml',
+        name: 'AI / Machine Learning',
+        icon: '🧠',
+        level: 'dominant',
+        score: 95,
+        years: 5,
+        highlights: [
+          'AI Centre of Excellence at Generali UK',
+          '6 Copilot agents deployed enterprise-wide',
+          'QLoRA fine-tuning (Qwen, Llama)',
+          'RAG pipelines — ChromaDB, Pinecone, LangChain',
+          'YOLOv8 computer vision & medical AI',
+        ],
+        tools: ['PyTorch', 'HF Transformers', 'LangChain', 'Azure AI', 'OpenAI', 'CrewAI'],
+      },
+      {
+        id: 'fullstack',
+        name: 'Full-Stack Engineering',
+        icon: '⚡',
+        level: 'dominant',
+        score: 92,
+        years: 10,
+        highlights: [
+          '15+ production apps shipped',
+          'NAVADA ecosystem — robotics, OSINT, ML lab',
+          'ALEX autonomous agent (multi-modal)',
+          'Raven Terminal — AI code learning platform',
+          'WorldMonitor real-time intelligence dashboard',
+        ],
+        tools: ['TypeScript', 'React', 'Next.js', 'Node.js', 'Python', 'FastAPI', 'D3.js'],
+      },
+      {
+        id: 'leadership',
+        name: 'Leadership & Governance',
+        icon: '🎯',
+        level: 'strong',
+        score: 88,
+        years: 17,
+        highlights: [
+          'Hired by COO as sole AI architect at Generali',
+          'Program Director — team of 27, £800K budget',
+          '50+ staff upskilled in AI/ML workshops',
+          'Enterprise governance frameworks & standards',
+          'Cross-functional teams of 30+ at scale',
+        ],
+        tools: ['PRINCE2', 'Scrum', 'SAFe', 'ITIL', 'CISM', 'Azure DevOps'],
+      },
+      {
+        id: 'cloud-infra',
+        name: 'Cloud & Infrastructure',
+        icon: '☁️',
+        level: 'strong',
+        score: 85,
+        years: 8,
+        highlights: [
+          'Azure AI Foundry & AWS Solutions Architect',
+          'Docker, Kubernetes, CI/CD pipelines',
+          'Home server — Tailscale, PM2, auto-deploy',
+          'PostgreSQL, Redis, DuckDB, ChromaDB',
+          'Edge deployment — Raspberry Pi + MediaPipe',
+        ],
+        tools: ['Azure', 'AWS', 'GCP', 'Docker', 'Vercel', 'Tailscale', 'GitHub Actions'],
+      },
+      {
+        id: 'commercial',
+        name: 'Commercial & Strategy',
+        icon: '📊',
+        level: 'established',
+        score: 82,
+        years: 17,
+        highlights: [
+          'Farfetch — £2.3B GMV marketplace',
+          'Programme budgets up to £5M',
+          'DHL — blockchain supply chain',
+          'Informa — food portfolio, £800K budget',
+          'Insurance, finance, healthcare, aviation',
+        ],
+        tools: ['Blockchain', 'DeFi', 'Supply Chain', 'E-Commerce', 'InsurTech'],
+      },
+    ];
   }
 
-  private showLoadingStage(stage: 'aircraft' | 'vessels' | 'analysis'): void {
-    const stages = this.content.querySelectorAll('.posture-stage');
-    if (stages.length === 0) return;
-
-    stages.forEach((el, i) => {
-      el.classList.remove('active', 'complete');
-      if (stage === 'aircraft' && i === 0) el.classList.add('active');
-      else if (stage === 'vessels') {
-        if (i === 0) el.classList.add('complete');
-        else if (i === 1) el.classList.add('active');
-      } else if (stage === 'analysis') {
-        if (i <= 1) el.classList.add('complete');
-        else if (i === 2) el.classList.add('active');
-      }
-    });
+  private getKeyMetrics(): CareerMetric[] {
+    return [
+      { label: 'Experience', value: '17+ yrs', icon: '📅' },
+      { label: 'Apps Shipped', value: '15+', icon: '🚀' },
+      { label: 'Team Size', value: '30+', icon: '👥' },
+      { label: 'Certs', value: '20+', icon: '🏅' },
+      { label: 'Staff Trained', value: '50+', icon: '🎓' },
+      { label: 'Industries', value: '8+', icon: '🏢' },
+    ];
   }
 
-  private async fetchAndRender(): Promise<void> {
-    if (!this.isPanelVisible()) return;
-
-    try {
-      // Fetch aircraft data from server
-      this.showLoadingStage('aircraft');
-      const data = await fetchCachedTheaterPosture(this.signal);
-      if (!data || data.postures.length === 0) {
-        this.showNoData();
-        return;
-      }
-
-      // Deep clone to avoid mutating cached data
-      this.postures = data.postures.map((p) => ({
-        ...p,
-        byOperator: { ...p.byOperator },
-      }));
-      this.lastTimestamp = data.timestamp;
-      this.isStale = data.stale || false;
-
-      // Try to augment with vessel data (client-side)
-      this.showLoadingStage('vessels');
-      await this.augmentWithVessels();
-
-      this.showLoadingStage('analysis');
-      this.updateBadges();
-      this.render();
-
-      // If we rendered stale localStorage data, re-fetch fresh after a short delay
-      if (this.isStale) {
-        setTimeout(() => {
-          void this.fetchAndRender();
-        }, 3000);
-      }
-    } catch (error) {
-      if (this.isAbortError(error)) return;
-      console.error('[StrategicPosturePanel] Fetch error:', error);
-      this.showFetchError();
-    }
-  }
-
-  private async augmentWithVessels(): Promise<void> {
-    try {
-      const { vessels } = await fetchMilitaryVessels();
-      console.log(`[StrategicPosturePanel] Got ${vessels.length} total military vessels`);
-      if (vessels.length === 0) {
-        // AIS stream hasn't accumulated data yet — restore from cache
-        this.restoreVesselCounts();
-        recalcPostureWithVessels(this.postures);
-        return;
-      }
-
-      // Merge vessel counts into each theater
-      for (const posture of this.postures) {
-        if (!posture.bounds) continue;
-
-        // Filter vessels within theater bounds
-        const theaterVessels = vessels.filter(
-          (v) =>
-            v.lat >= posture.bounds!.south &&
-            v.lat <= posture.bounds!.north &&
-            v.lon >= posture.bounds!.west &&
-            v.lon <= posture.bounds!.east
-        );
-
-        // Count by type
-        posture.destroyers = theaterVessels.filter((v) => v.vesselType === 'destroyer').length;
-        posture.frigates = theaterVessels.filter((v) => v.vesselType === 'frigate').length;
-        posture.carriers = theaterVessels.filter((v) => v.vesselType === 'carrier').length;
-        posture.submarines = theaterVessels.filter((v) => v.vesselType === 'submarine').length;
-        posture.patrol = theaterVessels.filter((v) => v.vesselType === 'patrol').length;
-        posture.auxiliaryVessels = theaterVessels.filter(
-          (v) => v.vesselType === 'auxiliary' || v.vesselType === 'special' || v.vesselType === 'amphibious' || v.vesselType === 'icebreaker' || v.vesselType === 'research' || v.vesselType === 'unknown'
-        ).length;
-        posture.totalVessels = theaterVessels.length;
-
-        if (theaterVessels.length > 0) {
-          console.log(`[StrategicPosturePanel] ${posture.shortName}: ${theaterVessels.length} vessels`, theaterVessels.map(v => v.vesselType));
-        }
-
-        // Add vessel operators to byOperator
-        for (const v of theaterVessels) {
-          const op = v.operator || 'unknown';
-          posture.byOperator[op] = (posture.byOperator[op] || 0) + 1;
-        }
-      }
-
-      // Cache vessel counts per theater in localStorage for instant restore on refresh
-      this.cacheVesselCounts();
-
-      // Recalculate posture levels now that vessels are included
-      recalcPostureWithVessels(this.postures);
-      console.log('[StrategicPosturePanel] Augmented with', vessels.length, 'vessels, posture levels recalculated');
-    } catch (error) {
-      console.warn('[StrategicPosturePanel] Failed to fetch vessels:', error);
-      // Restore cached vessel counts if live fetch failed
-      this.restoreVesselCounts();
-      recalcPostureWithVessels(this.postures);
-    }
-  }
-
-  private cacheVesselCounts(): void {
-    try {
-      const counts: Record<string, { destroyers: number; frigates: number; carriers: number; submarines: number; patrol: number; auxiliaryVessels: number; totalVessels: number }> = {};
-      for (const p of this.postures) {
-        if (p.totalVessels > 0) {
-          counts[p.theaterId] = {
-            destroyers: p.destroyers || 0,
-            frigates: p.frigates || 0,
-            carriers: p.carriers || 0,
-            submarines: p.submarines || 0,
-            patrol: p.patrol || 0,
-            auxiliaryVessels: p.auxiliaryVessels || 0,
-            totalVessels: p.totalVessels || 0,
-          };
-        }
-      }
-      localStorage.setItem('wm:vesselPosture', JSON.stringify({ counts, ts: Date.now() }));
-    } catch { /* quota exceeded or private mode */ }
-  }
-
-  private restoreVesselCounts(): void {
-    try {
-      const raw = localStorage.getItem('wm:vesselPosture');
-      if (!raw) return;
-      const { counts, ts } = JSON.parse(raw);
-      // Only use cache if < 30 minutes old
-      if (Date.now() - ts > 30 * 60 * 1000) return;
-      for (const p of this.postures) {
-        const cached = counts[p.theaterId];
-        if (cached) {
-          p.destroyers = cached.destroyers;
-          p.frigates = cached.frigates;
-          p.carriers = cached.carriers;
-          p.submarines = cached.submarines;
-          p.patrol = cached.patrol;
-          p.auxiliaryVessels = cached.auxiliaryVessels;
-          p.totalVessels = cached.totalVessels;
-        }
-      }
-      console.log('[StrategicPosturePanel] Restored cached vessel counts');
-    } catch { /* parse error */ }
-  }
-
-  public updatePostures(data: CachedTheaterPosture): void {
-    if (!data || data.postures.length === 0) {
-      this.showNoData();
-      return;
-    }
-    // Deep clone to avoid mutating cached data
-    this.postures = data.postures.map((p) => ({
-      ...p,
-      byOperator: { ...p.byOperator },
-    }));
-    this.lastTimestamp = data.timestamp;
-    this.isStale = data.stale || false;
-    this.augmentWithVessels().then(() => {
-      this.updateBadges();
-      this.render();
-    });
-  }
-
-  private updateBadges(): void {
-    const hasCritical = this.postures.some((p) => p.postureLevel === 'critical');
-    const hasElevated = this.postures.some((p) => p.postureLevel === 'elevated');
-    if (hasCritical) {
-      this.setNewBadge(1, true);
-    } else if (hasElevated) {
-      this.setNewBadge(1, false);
-    } else {
-      this.clearNewBadge();
-    }
-  }
-
-  public refresh(): void {
-    this.fetchAndRender();
-  }
-
-  private showNoData(): void {
-    this.stopLoadingTimer();
-    this.setContent(`
-      <div class="posture-panel">
-        <div class="posture-no-data">
-          <div class="posture-no-data-icon pulse">📡</div>
-          <div class="posture-no-data-title">${t('components.strategicPosture.acquiringData')}</div>
-          <div class="posture-no-data-desc">
-            ${t('components.strategicPosture.acquiringDesc')}
-          </div>
-          <div class="posture-data-sources">
-            <div class="posture-source">
-              <span class="posture-source-icon connecting">✈️</span>
-              <span>${t('components.strategicPosture.openSkyAdsb')}</span>
-            </div>
-            <div class="posture-source">
-              <span class="posture-source-icon waiting">🚢</span>
-              <span>${t('components.strategicPosture.aisVesselStream')}</span>
-            </div>
-          </div>
-          <button class="posture-retry-btn">↻ ${t('components.strategicPosture.retryNow')}</button>
-        </div>
-      </div>
-    `);
-    this.content.querySelector('.posture-retry-btn')?.addEventListener('click', () => this.refresh());
-  }
-
-  private showFetchError(): void {
-    this.stopLoadingTimer();
-    this.setContent(`
-      <div class="posture-panel">
-        <div class="posture-no-data">
-          <div class="posture-no-data-icon">⚠️</div>
-          <div class="posture-no-data-title">${t('components.strategicPosture.feedRateLimited')}</div>
-          <div class="posture-no-data-desc">
-            ${t('components.strategicPosture.rateLimitedDesc')}
-          </div>
-          <div class="posture-error-hint">
-            <strong>${t('components.strategicPosture.rateLimitedTip')}</strong>
-          </div>
-          <button class="posture-retry-btn">↻ ${t('components.strategicPosture.tryAgain')}</button>
-        </div>
-      </div>
-    `);
-    this.content.querySelector('.posture-retry-btn')?.addEventListener('click', () => this.refresh());
-  }
-
-  private getPostureBadge(level: string): string {
+  private getLevelBadge(level: string): string {
     switch (level) {
-      case 'critical':
-        return `<span class="posture-badge posture-critical">${t('components.strategicPosture.badges.critical')}</span>`;
-      case 'elevated':
-        return `<span class="posture-badge posture-elevated">${t('components.strategicPosture.badges.elevated')}</span>`;
+      case 'dominant':
+        return '<span class="posture-badge posture-critical">DOMINANT</span>';
+      case 'strong':
+        return '<span class="posture-badge posture-elevated">STRONG</span>';
       default:
-        return `<span class="posture-badge posture-normal">${t('components.strategicPosture.badges.normal')}</span>`;
+        return '<span class="posture-badge posture-normal">ESTABLISHED</span>';
     }
   }
 
-  private getTrendIcon(trend: string, change: number): string {
-    switch (trend) {
-      case 'increasing':
-        return `<span class="posture-trend trend-up">↗ +${change}%</span>`;
-      case 'decreasing':
-        return `<span class="posture-trend trend-down">↘ ${change}%</span>`;
-      default:
-        return `<span class="posture-trend trend-stable">→ ${t('components.strategicPosture.trendStable')}</span>`;
-    }
+  private getScoreBar(score: number, level: string): string {
+    const color = level === 'dominant' ? '#ef5350' : level === 'strong' ? '#ffa726' : '#66bb6a';
+    return `
+      <div class="sp-score-bar">
+        <div class="sp-score-fill" style="width:${score}%;background:${color}"></div>
+        <span class="sp-score-label">${score}%</span>
+      </div>
+    `;
   }
 
-  private theaterDisplayName(p: TheaterPostureSummary): string {
-    const key = `components.strategicPosture.theaters.${p.theaterId}`;
-    const translated = t(key);
-    return translated !== key ? translated : p.theaterName;
-  }
+  private renderDomain(d: CareerDomain): string {
+    const isTop = d.level === 'dominant';
 
-  private renderTheater(p: TheaterPostureSummary): string {
-    const isExpanded = p.postureLevel !== 'normal';
-    const displayName = this.theaterDisplayName(p);
-
-    if (!isExpanded) {
-      // Compact single-line view for normal theaters
-      const chips: string[] = [];
-      if (p.totalAircraft > 0) chips.push(`<span class="posture-chip air">✈️ ${p.totalAircraft}</span>`);
-      if (p.totalVessels > 0) chips.push(`<span class="posture-chip naval">⚓ ${p.totalVessels}</span>`);
-
+    if (!isTop) {
+      // Compact view for non-dominant domains
       return `
-        <div class="posture-theater posture-compact" data-lat="${p.centerLat}" data-lon="${p.centerLon}" title="${t('components.strategicPosture.clickToView', { name: escapeHtml(displayName) })}">
-          <span class="posture-name">${escapeHtml(p.shortName)}</span>
-          <div class="posture-chips">${chips.join('')}</div>
-          ${this.getPostureBadge(p.postureLevel)}
+        <div class="posture-theater posture-compact" style="cursor:default">
+          <span class="posture-name">${d.icon} ${escapeHtml(d.name)}</span>
+          <div class="posture-chips">
+            <span class="posture-chip air">${d.years}y</span>
+          </div>
+          ${this.getLevelBadge(d.level)}
         </div>
       `;
     }
 
-    // Build compact stat chips for expanded view
-    const airChips: string[] = [];
-    if (p.fighters > 0) airChips.push(`<span class="posture-stat" title="${t('components.strategicPosture.units.fighters')}">✈️ ${p.fighters}</span>`);
-    if (p.tankers > 0) airChips.push(`<span class="posture-stat" title="${t('components.strategicPosture.units.tankers')}">⛽ ${p.tankers}</span>`);
-    if (p.awacs > 0) airChips.push(`<span class="posture-stat" title="${t('components.strategicPosture.units.awacs')}">📡 ${p.awacs}</span>`);
-    if (p.reconnaissance > 0) airChips.push(`<span class="posture-stat" title="${t('components.strategicPosture.units.recon')}">🔍 ${p.reconnaissance}</span>`);
-    if (p.transport > 0) airChips.push(`<span class="posture-stat" title="${t('components.strategicPosture.units.transport')}">📦 ${p.transport}</span>`);
-    if (p.bombers > 0) airChips.push(`<span class="posture-stat" title="${t('components.strategicPosture.units.bombers')}">💣 ${p.bombers}</span>`);
-    if (p.drones > 0) airChips.push(`<span class="posture-stat" title="${t('components.strategicPosture.units.drones')}">🛸 ${p.drones}</span>`);
-    // Fallback: show total aircraft if no typed breakdown available
-    if (airChips.length === 0 && p.totalAircraft > 0) {
-      airChips.push(`<span class="posture-stat" title="${t('components.strategicPosture.units.aircraft')}">✈️ ${p.totalAircraft}</span>`);
-    }
-
-    const navalChips: string[] = [];
-    if (p.carriers > 0) navalChips.push(`<span class="posture-stat carrier" title="${t('components.strategicPosture.units.carriers')}">🚢 ${p.carriers}</span>`);
-    if (p.destroyers > 0) navalChips.push(`<span class="posture-stat" title="${t('components.strategicPosture.units.destroyers')}">⚓ ${p.destroyers}</span>`);
-    if (p.frigates > 0) navalChips.push(`<span class="posture-stat" title="${t('components.strategicPosture.units.frigates')}">🛥️ ${p.frigates}</span>`);
-    if (p.submarines > 0) navalChips.push(`<span class="posture-stat" title="${t('components.strategicPosture.units.submarines')}">🦈 ${p.submarines}</span>`);
-    if (p.patrol > 0) navalChips.push(`<span class="posture-stat" title="${t('components.strategicPosture.units.patrol')}">🚤 ${p.patrol}</span>`);
-    if (p.auxiliaryVessels > 0) navalChips.push(`<span class="posture-stat" title="${t('components.strategicPosture.units.auxiliary')}">⚓ ${p.auxiliaryVessels}</span>`);
-    // Fallback: show total vessels if no typed breakdown available
-    if (navalChips.length === 0 && p.totalVessels > 0) {
-      navalChips.push(`<span class="posture-stat" title="${t('components.strategicPosture.units.navalVessels')}">⚓ ${p.totalVessels}</span>`);
-    }
-
-    const hasAir = airChips.length > 0;
-    const hasNaval = navalChips.length > 0;
-
+    // Expanded view for dominant domains
     return `
-      <div class="posture-theater posture-expanded ${p.postureLevel}" data-lat="${p.centerLat}" data-lon="${p.centerLon}" title="${t('components.strategicPosture.clickToViewMap')}">
+      <div class="posture-theater posture-expanded ${d.level === 'dominant' ? 'critical' : 'elevated'}" style="cursor:default">
         <div class="posture-theater-header">
-          <span class="posture-name">${escapeHtml(displayName)}</span>
-          ${this.getPostureBadge(p.postureLevel)}
+          <span class="posture-name">${d.icon} ${escapeHtml(d.name)}</span>
+          ${this.getLevelBadge(d.level)}
         </div>
-
+        ${this.getScoreBar(d.score, d.level)}
         <div class="posture-forces">
-          ${hasAir ? `<div class="posture-force-row"><span class="posture-domain">${t('components.strategicPosture.domains.air')}</span><div class="posture-stats">${airChips.join('')}</div></div>` : ''}
-          ${hasNaval ? `<div class="posture-force-row"><span class="posture-domain">${t('components.strategicPosture.domains.sea')}</span><div class="posture-stats">${navalChips.join('')}</div></div>` : ''}
+          <div class="posture-force-row">
+            <span class="posture-domain">KEY</span>
+            <div class="posture-stats">
+              ${d.highlights.slice(0, 3).map(h => `<span class="posture-stat" title="${escapeHtml(h)}">▸ ${escapeHtml(h.length > 35 ? h.slice(0, 33) + '…' : h)}</span>`).join('')}
+            </div>
+          </div>
+          <div class="posture-force-row">
+            <span class="posture-domain">STACK</span>
+            <div class="posture-stats">
+              ${d.tools.map(t => `<span class="posture-chip air">${escapeHtml(t)}</span>`).join('')}
+            </div>
+          </div>
         </div>
-
         <div class="posture-footer">
-          ${p.strikeCapable ? `<span class="posture-strike">⚡ ${t('components.strategicPosture.strike')}</span>` : ''}
-          ${this.getTrendIcon(p.trend, p.changePercent)}
-          ${p.targetNation ? `<span class="posture-focus">→ ${escapeHtml(p.targetNation)}</span>` : ''}
+          <span class="posture-trend trend-up">↗ ${d.years}+ years</span>
         </div>
       </div>
     `;
   }
 
   private render(): void {
-    this.stopLoadingTimer();
-    const sorted = [...this.postures].sort((a, b) => {
-      const order: Record<string, number> = { critical: 0, elevated: 1, normal: 2 };
-      return (order[a.postureLevel] ?? 2) - (order[b.postureLevel] ?? 2);
-    });
-
-    const updatedTime = this.lastTimestamp
-      ? new Date(this.lastTimestamp).toLocaleTimeString()
-      : new Date().toLocaleTimeString();
-
-    const staleWarning = this.isStale
-      ? `<div class="posture-stale-warning">⚠️ ${t('components.strategicPosture.staleWarning')}</div>`
-      : '';
+    const domains = this.getDomains();
+    const metrics = this.getKeyMetrics();
+    const now = new Date().toLocaleTimeString();
 
     const html = `
       <div class="posture-panel">
-        ${staleWarning}
-        ${sorted.map((p) => this.renderTheater(p)).join('')}
+        <div class="sp-header-card">
+          <div class="sp-identity">
+            <div class="sp-name">Lee Akpareva</div>
+            <div class="sp-role">Principal AI Consultant · Full-Stack Engineer</div>
+            <div class="sp-org">Generali UK — Hired by COO · AI Centre of Excellence</div>
+          </div>
+          <div class="sp-overall-badge">
+            <span class="posture-badge posture-critical" style="font-size:11px;padding:3px 10px">STRONG POSITION</span>
+          </div>
+        </div>
+
+        <div class="sp-metrics-grid">
+          ${metrics.map(m => `
+            <div class="sp-metric">
+              <span class="sp-metric-icon">${m.icon}</span>
+              <span class="sp-metric-value">${m.value}</span>
+              <span class="sp-metric-label">${m.label}</span>
+            </div>
+          `).join('')}
+        </div>
+
+        ${domains.map(d => this.renderDomain(d)).join('')}
+
+        <div class="sp-certs-row">
+          <span class="posture-domain">CERTS</span>
+          <div class="posture-stats" style="flex-wrap:wrap;gap:3px">
+            ${['Azure AI', 'AWS SA', 'IBM FS', 'PRINCE2', 'Scrum', 'SAFe', 'CISM', 'Blockchain'].map(c => `<span class="posture-chip air">${c}</span>`).join('')}
+          </div>
+        </div>
+
+        <div class="sp-education-row">
+          <span class="posture-domain">EDU</span>
+          <div class="posture-stats" style="flex-wrap:wrap;gap:3px">
+            ${['MBA', 'MSc PM', 'LLB Law', 'CSM Fashion'].map(e => `<span class="posture-chip naval">${e}</span>`).join('')}
+          </div>
+        </div>
 
         <div class="posture-footer">
-          <span class="posture-updated">${this.isStale ? '⚠️ ' : ''}${t('components.strategicPosture.updated')} ${updatedTime}</span>
-          <button class="posture-refresh-btn" title="${t('components.strategicPosture.refresh')}">↻</button>
+          <span class="posture-updated">Updated ${now}</span>
         </div>
       </div>
     `;
 
     this.setContent(html);
-    this.attachEventListeners();
+
+    // Inject scoped styles
+    this.injectStyles();
   }
 
-  private attachEventListeners(): void {
-    this.content.querySelector('.posture-refresh-btn')?.addEventListener('click', () => {
-      this.refresh();
-    });
+  private injectStyles(): void {
+    const styleId = 'sp-career-styles';
+    if (document.getElementById(styleId)) return;
 
-    const theaters = this.content.querySelectorAll('.posture-theater');
-    theaters.forEach((el) => {
-      el.addEventListener('click', () => {
-        const lat = parseFloat((el as HTMLElement).dataset.lat || '0');
-        const lon = parseFloat((el as HTMLElement).dataset.lon || '0');
-        console.log('[StrategicPosturePanel] Theater clicked:', {
-          lat,
-          lon,
-          dataLat: (el as HTMLElement).dataset.lat,
-          dataLon: (el as HTMLElement).dataset.lon,
-          element: (el as HTMLElement).textContent?.slice(0, 30),
-          hasHandler: !!this.onLocationClick,
-        });
-        if (this.onLocationClick && !isNaN(lat) && !isNaN(lon)) {
-          console.log('[StrategicPosturePanel] Calling onLocationClick with:', lat, lon);
-          this.onLocationClick(lat, lon);
-        } else {
-          console.warn('[StrategicPosturePanel] No handler or invalid coords!', {
-            hasHandler: !!this.onLocationClick,
-            lat,
-            lon,
-          });
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+      .sp-header-card {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding: 8px 10px;
+        margin-bottom: 6px;
+        background: rgba(255,255,255,0.03);
+        border-radius: 6px;
+        border-left: 3px solid #ef5350;
+      }
+      .sp-identity { flex: 1; }
+      .sp-name {
+        font-size: 14px;
+        font-weight: 700;
+        color: #fff;
+        letter-spacing: 0.5px;
+      }
+      .sp-role {
+        font-size: 11px;
+        color: #90caf9;
+        margin-top: 2px;
+      }
+      .sp-org {
+        font-size: 10px;
+        color: rgba(255,255,255,0.5);
+        margin-top: 2px;
+      }
+      .sp-overall-badge {
+        flex-shrink: 0;
+        margin-left: 8px;
+        margin-top: 2px;
+      }
+      .sp-metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 4px;
+        margin-bottom: 6px;
+      }
+      .sp-metric {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 6px 2px;
+        background: rgba(255,255,255,0.03);
+        border-radius: 4px;
+      }
+      .sp-metric-icon { font-size: 14px; }
+      .sp-metric-value {
+        font-size: 13px;
+        font-weight: 700;
+        color: #fff;
+        margin-top: 2px;
+      }
+      .sp-metric-label {
+        font-size: 8px;
+        color: rgba(255,255,255,0.5);
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        margin-top: 1px;
+      }
+      .sp-score-bar {
+        height: 6px;
+        background: rgba(255,255,255,0.08);
+        border-radius: 3px;
+        margin: 4px 0 6px;
+        position: relative;
+        overflow: hidden;
+      }
+      .sp-score-fill {
+        height: 100%;
+        border-radius: 3px;
+        transition: width 0.8s ease;
+      }
+      .sp-score-label {
+        position: absolute;
+        right: 4px;
+        top: -1px;
+        font-size: 8px;
+        color: rgba(255,255,255,0.7);
+        font-weight: 600;
+      }
+      .sp-certs-row, .sp-education-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 6px;
+        margin-top: 3px;
+        background: rgba(255,255,255,0.02);
+        border-radius: 4px;
+      }
+      .posture-stat {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 220px;
+      }
+      @media (max-width: 768px) {
+        .sp-metrics-grid {
+          grid-template-columns: repeat(3, 1fr);
         }
-      });
-    });
+      }
+    `;
+    document.head.appendChild(style);
   }
 
-  public setLocationClickHandler(handler: (lat: number, lon: number) => void): void {
-    console.log('[StrategicPosturePanel] setLocationClickHandler called, handler:', typeof handler);
-    this.onLocationClick = handler;
-    // Verify it's stored
-    console.log('[StrategicPosturePanel] Handler stored, onLocationClick now:', typeof this.onLocationClick);
+  // Keep public API compatible for panel-layout.ts
+  public setLocationClickHandler(_handler: (lat: number, lon: number) => void): void {
+    // No-op — career panel doesn't have map interactions
   }
 
-  public getPostures(): TheaterPostureSummary[] {
-    return this.postures;
+  public getPostures(): never[] {
+    return [];
+  }
+
+  public updatePostures(_data?: unknown): void {
+    // No-op — career data is static
+  }
+
+  public refresh(): void {
+    this.render();
   }
 
   public override show(): void {
     const wasHidden = this.element.classList.contains('hidden');
     super.show();
     if (wasHidden) {
-      void this.fetchAndRender();
+      this.render();
     }
   }
 
   public destroy(): void {
     if (this.refreshInterval) clearInterval(this.refreshInterval);
-    this.stopLoadingTimer();
-    this.vesselTimeouts.forEach(t => clearTimeout(t));
-    this.vesselTimeouts = [];
     super.destroy();
   }
 }

@@ -221,3 +221,98 @@
 .giving-receiver-list li:last-child { border-bottom: none; }
 .giving-inst-content { }
 .giving-inst-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+
+/* ----------------------------------------------------------
+   NAVADA Trading Panels (Portfolio, Positions, Signals)
+   ---------------------------------------------------------- */
+
+/* Shared */
+.navada-empty { padding: 12px 8px; color: var(--text-faint); font-size: 11px; text-align: center; }
+.navada-divider { border-top: 1px solid var(--border); margin: 8px 0; }
+.navada-section-label { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.navada-count-badge { font-size: 10px; font-weight: 700; color: var(--accent); background: var(--overlay-subtle); padding: 2px 6px; border-radius: 3px; font-variant-numeric: tabular-nums; }
+
+/* Color helpers */
+.navada-positive { color: #4caf50; }
+.navada-negative { color: #f44336; }
+
+/* Action badges */
+.navada-action-buy { background: color-mix(in srgb, #4caf50 15%, transparent); color: #4caf50; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 3px; letter-spacing: 0.5px; }
+.navada-action-sell { background: color-mix(in srgb, #f44336 15%, transparent); color: #f44336; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 3px; letter-spacing: 0.5px; }
+.navada-action-hold { background: var(--overlay-medium); color: var(--text-dim); font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 3px; letter-spacing: 0.5px; }
+
+/* --- Portfolio Panel --- */
+.navada-portfolio-content { font-size: 12px; }
+.navada-hero-row { display: flex; justify-content: space-between; align-items: flex-start; padding: 8px 10px; margin-bottom: 6px; }
+.navada-hero-equity { display: flex; flex-direction: column; }
+.navada-equity-value { font-size: 22px; font-weight: 700; color: #FFD43B; font-variant-numeric: tabular-nums; }
+.navada-equity-label { font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+.navada-hero-return { display: flex; flex-direction: column; align-items: center; }
+.navada-return-badge { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.navada-hero-pnl { display: flex; flex-direction: column; align-items: flex-end; }
+.navada-pnl-value { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.navada-sparkline-wrap { padding: 0 10px 8px; }
+.navada-sparkline-svg { width: 100%; height: 40px; }
+
+.navada-kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 0 10px 8px; }
+.navada-kpi-card { background: var(--overlay-subtle); border: 1px solid var(--border); border-radius: 4px; padding: 8px 6px; text-align: center; }
+.navada-kpi-value { display: block; font-size: 14px; font-weight: 700; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.navada-kpi-label { display: block; font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+
+.navada-footer-row { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 10px; color: var(--text-faint); font-size: 10px; flex-wrap: wrap; }
+.navada-footer-sep { color: var(--border-strong); }
+.navada-footer-item { white-space: nowrap; }
+
+/* --- Positions Panel --- */
+.navada-positions-content { font-size: 12px; }
+.navada-positions-header { display: flex; justify-content: space-between; align-items: center; padding: 4px 10px 6px; }
+.navada-positions-list { }
+
+.navada-position-item { padding: 6px 10px; border-bottom: 1px solid var(--border-subtle); }
+.navada-position-item:hover { background: var(--surface-hover); }
+.navada-position-top { display: flex; align-items: center; gap: 8px; }
+.navada-position-symbol { font-weight: 700; color: var(--text); font-size: 12px; min-width: 44px; }
+.navada-position-qty { color: var(--text-dim); font-size: 11px; }
+.navada-position-price { color: var(--text-secondary); font-variant-numeric: tabular-nums; margin-left: auto; }
+.navada-position-pl { font-weight: 600; font-variant-numeric: tabular-nums; font-size: 12px; min-width: 80px; text-align: right; }
+.navada-position-bottom { display: flex; justify-content: space-between; padding-top: 2px; }
+.navada-position-entry { color: var(--text-faint); font-size: 10px; }
+.navada-position-pct { font-size: 10px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* Trades list */
+.navada-trades-list { }
+.navada-trade-item { display: flex; align-items: center; gap: 6px; padding: 4px 10px; border-bottom: 1px solid var(--border-subtle); font-size: 11px; }
+.navada-trade-item:hover { background: var(--surface-hover); }
+.navada-trade-symbol { font-weight: 600; color: var(--text); min-width: 36px; }
+.navada-trade-amt { color: var(--text-secondary); font-variant-numeric: tabular-nums; min-width: 50px; }
+.navada-trade-reason { color: var(--text-faint); font-size: 10px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.navada-trade-time { color: var(--text-muted); font-size: 10px; white-space: nowrap; }
+
+/* --- Signals Panel --- */
+.navada-signals-content { font-size: 12px; }
+.navada-signals-list { }
+
+.navada-signal-card { padding: 6px 10px; border-bottom: 1px solid var(--border-subtle); }
+.navada-signal-card:hover { background: var(--surface-hover); }
+.navada-signal-top { display: flex; align-items: center; gap: 8px; }
+.navada-signal-symbol { font-weight: 700; color: var(--text); font-size: 12px; min-width: 44px; }
+.navada-signal-price { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.navada-signal-action { margin-left: auto; }
+.navada-signal-rsi { color: var(--text-dim); font-size: 11px; font-variant-numeric: tabular-nums; min-width: 60px; text-align: right; }
+.navada-signal-bottom { display: flex; gap: 12px; padding-top: 3px; }
+.navada-signal-ma { color: var(--text-faint); font-size: 10px; font-variant-numeric: tabular-nums; }
+.navada-signal-trend { font-size: 10px; font-weight: 600; margin-left: auto; }
+
+/* Trend colors */
+.navada-trend-bullish { color: #4caf50; }
+.navada-trend-bearish { color: #f44336; }
+.navada-trend-overbought { color: #ff9800; }
+.navada-trend-oversold { color: #2196f3; }
+
+/* Risk bar */
+.navada-risk-bar { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 10px; border-top: 1px solid var(--border); color: var(--text-dim); font-size: 10px; }
+.navada-risk-item { white-space: nowrap; }
+.navada-risk-sep { color: var(--border-strong); }
+.navada-risk-active { color: #4caf50; font-weight: 600; }
+.navada-risk-error { color: #f44336; font-weight: 600; }

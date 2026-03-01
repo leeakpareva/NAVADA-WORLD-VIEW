@@ -88,7 +88,7 @@ Use your latest knowledge as of ${new Date().toISOString().split('T')[0]}. Inclu
 
   private async fetchAI(url: string, key: string, model: string, prompt: string): Promise<AIExposureData | null> {
     const abort = new AbortController();
-    const timeout = setTimeout(() => abort.abort(), 15000);
+    const timeout = setTimeout(() => abort.abort(), 30000);
     try {
       const resp = await fetch(url, {
         method: 'POST',

@@ -46,31 +46,19 @@ export class StablecoinPanel extends Panel {
   }
 
   private async fetchData(): Promise<void> {
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        const client = new MarketServiceClient('', { fetch: (...args) => globalThis.fetch(...args) });
-        this.data = await client.listStablecoinMarkets({ coins: [] });
-        this.error = null;
-
-        if (this.data && this.data.stablecoins.length === 0 && attempt < 2) {
-          this.showRetrying();
-          await new Promise(r => setTimeout(r, 20_000));
-          continue;
-        }
-        break;
-      } catch (err) {
-        if (this.isAbortError(err)) return;
-        if (attempt < 2) {
-          this.showRetrying();
-          await new Promise(r => setTimeout(r, 20_000));
-          continue;
-        }
-        this.error = err instanceof Error ? err.message : 'Failed to fetch';
-      }
+    try {
+      const client = new MarketServiceClient('', { fetch: (...args) => globalThis.fetch(...args) });
+      this.data = await client.listStablecoinMarkets({ coins: [] });
+      this.error = null;
+    } catch (err) {
+      if (this.isAbortError(err)) return;
+      console.warn('[Stablecoins] Proto API failed:', err instanceof Error ? err.message : err);
+      this.error = err instanceof Error ? err.message : 'Failed to fetch';
     }
 
-    // AI fallback when backend returns 403 or empty
+    // AI fallback when backend returns 404/403 or empty
     if (!this.data || this.data.stablecoins.length === 0) {
+      console.log('[Stablecoins] No data from API — trying AI fallback');
       const aiData = await this.fetchAIFallback();
       if (aiData) {
         this.data = aiData;
@@ -101,7 +89,7 @@ export class StablecoinPanel extends Panel {
 Format: {"timestamp":"${new Date().toISOString()}","summary":{"totalMarketCap":number,"totalVolume24h":number,"coinCount":number,"depeggedCount":number,"healthStatus":"HEALTHY|CAUTION|WARNING"},"stablecoins":[{"id":"tether","symbol":"USDT","name":"Tether","price":number,"deviation":number,"pegStatus":"ON PEG|SLIGHT DEPEG|DEPEGGED","marketCap":number,"volume24h":number,"change24h":number,"change7d":number,"image":""}]}
 Include USDT, USDC, DAI, BUSD, TUSD with realistic current prices and market caps.` }],
         }),
-        signal: AbortSignal.timeout(15000),
+        signal: AbortSignal.timeout(30000),
       });
       if (!res.ok) return null;
       const json = await res.json();
@@ -112,7 +100,7 @@ Include USDT, USDC, DAI, BUSD, TUSD with realistic current prices and market cap
         console.log('[Stablecoins] AI fallback loaded');
         return parsed as StablecoinResult;
       }
-    } catch { /* AI fallback failed */ }
+    } catch (e) { console.warn('[Stablecoins] AI fallback error:', e); }
     return null;
   }
 

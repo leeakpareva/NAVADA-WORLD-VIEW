@@ -49,7 +49,7 @@ function isCacheValid(): boolean {
 
 // ---- AI prompt ----
 
-const MARKET_PROMPT = `You are a financial data assistant. Return ONLY valid JSON (no markdown, no code fences, no explanation) with approximate current market data. Use realistic current prices based on your latest knowledge. The JSON must match this exact structure:
+const MARKET_PROMPT = `You are a financial data assistant. Return ONLY valid JSON (no markdown, no code fences, no explanation) with approximate current market data. Use realistic current prices based on your latest knowledge. Sectors are UK FTSE-based. The JSON must match this exact structure:
 
 {
   "stocks": [
@@ -98,17 +98,17 @@ const MARKET_PROMPT = `You are a financial data assistant. Return ONLY valid JSO
   ],
   "sectors": [
     {"name":"Tech","change":0.5},
-    {"name":"Finance","change":0.3},
+    {"name":"Banks","change":0.3},
     {"name":"Energy","change":-0.2},
     {"name":"Health","change":0.1},
     {"name":"Consumer","change":0.4},
     {"name":"Industrial","change":0.2},
-    {"name":"Staples","change":0.1},
+    {"name":"Insurance","change":0.1},
     {"name":"Utilities","change":-0.1},
     {"name":"Materials","change":0.3},
     {"name":"Real Est","change":-0.3},
-    {"name":"Comms","change":0.6},
-    {"name":"Semis","change":0.8}
+    {"name":"Telecom","change":0.6},
+    {"name":"Mining","change":0.8}
   ]
 }
 
@@ -121,7 +121,7 @@ async function fetchFromXai(prompt: string): Promise<string | null> {
   if (!key) return null;
 
   const abort = new AbortController();
-  const timeout = setTimeout(() => abort.abort(), 15000);
+  const timeout = setTimeout(() => abort.abort(), 30000);
   try {
     const resp = await fetch('https://api.x.ai/v1/chat/completions', {
       method: 'POST',
@@ -151,7 +151,7 @@ async function fetchFromOpenai(prompt: string): Promise<string | null> {
   if (!key) return null;
 
   const abort = new AbortController();
-  const timeout = setTimeout(() => abort.abort(), 15000);
+  const timeout = setTimeout(() => abort.abort(), 30000);
   try {
     const resp = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',

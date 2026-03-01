@@ -15,19 +15,15 @@ import {
   LiveWebcamsPanel,
   CIIPanel,
   CascadePanel,
-  StrategicRiskPanel,
   StrategicPosturePanel,
   TechEventsPanel,
   ServiceStatusPanel,
   RuntimeConfigPanel,
-  InsightsPanel,
+  AIMarketSharePanel,
   TechReadinessPanel,
   MacroSignalsPanel,
-  ETFFlowsPanel,
   StablecoinPanel,
   JobLossesPanel,
-  UcdpEventsPanel,
-  DisplacementPanel,
   ClimateAnomalyPanel,
   PopulationExposurePanel,
   InvestmentsPanel,
@@ -39,6 +35,13 @@ import {
   BitcoinPricePanel,
   CountdownPanel,
   UKDebtGDPPanel,
+  EnergyPricesPanel,
+  GoldPricePanel,
+  GlobalDebtPanel,
+  GlobalGDPPanel,
+  TradingPortfolioPanel,
+  TradingPositionsPanel,
+  TradingSignalsPanel,
 } from '@/components';
 import { SatelliteFiresPanel } from '@/components/SatelliteFiresPanel';
 import { PositiveNewsFeedPanel } from '@/components/PositiveNewsFeedPanel';
@@ -664,11 +667,11 @@ export class PanelLayoutManager implements AppModule {
       const satelliteFiresPanel = new SatelliteFiresPanel();
       this.ctx.panels['satellite-fires'] = satelliteFiresPanel;
 
-      const strategicRiskPanel = new StrategicRiskPanel();
-      strategicRiskPanel.setLocationClickHandler((lat, lon) => {
-        this.ctx.map?.setCenter(lat, lon, 4);
-      });
-      this.ctx.panels['strategic-risk'] = strategicRiskPanel;
+      const globalDebtPanel = new GlobalDebtPanel();
+      this.ctx.panels['global-debt'] = globalDebtPanel;
+
+      const globalGDPPanel = new GlobalGDPPanel();
+      this.ctx.panels['global-gdp'] = globalGDPPanel;
 
       const strategicPosturePanel = new StrategicPosturePanel();
       strategicPosturePanel.setLocationClickHandler((lat, lon) => {
@@ -676,18 +679,6 @@ export class PanelLayoutManager implements AppModule {
         this.ctx.map?.setCenter(lat, lon, 4);
       });
       this.ctx.panels['strategic-posture'] = strategicPosturePanel;
-
-      const ucdpEventsPanel = new UcdpEventsPanel();
-      ucdpEventsPanel.setEventClickHandler((lat, lon) => {
-        this.ctx.map?.setCenter(lat, lon, 5);
-      });
-      this.ctx.panels['ucdp-events'] = ucdpEventsPanel;
-
-      const displacementPanel = new DisplacementPanel();
-      displacementPanel.setCountryClickHandler((lat, lon) => {
-        this.ctx.map?.setCenter(lat, lon, 4);
-      });
-      this.ctx.panels['displacement'] = displacementPanel;
 
       const climatePanel = new ClimateAnomalyPanel();
       climatePanel.setZoneClickHandler((lat, lon) => {
@@ -715,6 +706,9 @@ export class PanelLayoutManager implements AppModule {
 
       const debtGdpPanel = new UKDebtGDPPanel();
       this.ctx.panels['uk-debt-gdp'] = debtGdpPanel;
+
+      this.ctx.panels['energy-prices'] = new EnergyPricesPanel();
+      this.ctx.panels['gold-price'] = new GoldPricePanel();
     }
 
     if (SITE_VARIANT === 'finance') {
@@ -740,7 +734,6 @@ export class PanelLayoutManager implements AppModule {
       this.ctx.panels['tech-readiness'] = techReadinessPanel;
 
       this.ctx.panels['macro-signals'] = new MacroSignalsPanel();
-      this.ctx.panels['etf-flows'] = new ETFFlowsPanel();
       this.ctx.panels['stablecoins'] = new StablecoinPanel();
       this.ctx.panels['job-losses'] = new JobLossesPanel();
     }
@@ -750,8 +743,15 @@ export class PanelLayoutManager implements AppModule {
       this.ctx.panels['runtime-config'] = runtimeConfigPanel;
     }
 
-    const insightsPanel = new InsightsPanel();
+    const insightsPanel = new AIMarketSharePanel();
     this.ctx.panels['insights'] = insightsPanel;
+
+    // NAVADA Trading panels (full + finance variants)
+    if (SITE_VARIANT === 'full' || SITE_VARIANT === 'finance') {
+      this.ctx.panels['navada-portfolio'] = new TradingPortfolioPanel();
+      this.ctx.panels['navada-positions'] = new TradingPositionsPanel();
+      this.ctx.panels['navada-signals'] = new TradingSignalsPanel();
+    }
 
     // Global Giving panel (all variants)
     this.ctx.panels['giving'] = new GivingPanel();

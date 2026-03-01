@@ -6,7 +6,7 @@ import type {
 } from '@/services/supply-chain';
 import { t } from '@/services/i18n';
 import { escapeHtml } from '@/utils/sanitize';
-import { isFeatureAvailable } from '@/services/runtime-config';
+import { isFeatureAvailable, getSecretValue } from '@/services/runtime-config';
 import { isDesktopRuntime } from '@/services/runtime';
 
 type TabId = 'chokepoints' | 'shipping' | 'minerals';
@@ -16,7 +16,6 @@ export class SupplyChainPanel extends Panel {
   private chokepointData: GetChokepointStatusResponse | null = null;
   private mineralsData: GetCriticalMineralsResponse | null = null;
   private activeTab: TabId = 'chokepoints';
-
   constructor() {
     super({ id: 'supply-chain', title: t('panels.supplyChain') });
     this.content.addEventListener('click', (e) => {
@@ -28,6 +27,51 @@ export class SupplyChainPanel extends Panel {
         this.render();
       }
     });
+    setTimeout(() => this.checkAndLoadAI(), 8000);
+  }
+
+  private async checkAndLoadAI(): Promise<void> {
+    const hasData = (this.chokepointData?.chokepoints.length ?? 0) > 0;
+    if (hasData) return;
+    console.log('[SupplyChain] No proto data — loading AI fallback');
+    await this.fetchAIFallback();
+  }
+
+  private async fetchAIFallback(): Promise<void> {
+    const xaiKey = getSecretValue('XAI_API_KEY');
+    const openaiKey = getSecretValue('OPENAI_API_KEY');
+    const key = xaiKey || openaiKey;
+    if (!key) return;
+    const baseUrl = xaiKey ? 'https://api.x.ai/v1' : 'https://api.openai.com/v1';
+    const model = xaiKey ? 'grok-3-mini-fast' : 'gpt-4o-mini';
+    try {
+      const res = await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+        body: JSON.stringify({
+          model, temperature: 0.3, max_tokens: 2000,
+          messages: [{ role: 'user', content: `Return current global supply chain data as JSON only (no markdown). Date: ${new Date().toISOString().split('T')[0]}.
+Format: {"chokepoints":[{"name":"Bab el-Mandeb","status":"red","disruptionScore":65,"activeWarnings":3,"description":"Houthi attacks continue disrupting shipping","affectedRoutes":["Asia-Europe","Asia-Mediterranean"]}],"indices":[{"name":"Baltic Dry Index","currentValue":1450,"changePct":-2.3,"unit":"points","spikeAlert":false,"history":[{"value":1400},{"value":1420},{"value":1450}]}],"minerals":[{"mineral":"Lithium","hhi":3200,"riskRating":"high","topProducers":[{"country":"Australia","sharePct":47},{"country":"Chile","sharePct":25}],"priceChangePct":-8.5}]}
+Include 6 chokepoints (Bab el-Mandeb critical, Panama Canal elevated, Strait of Hormuz elevated, Suez Canal, Strait of Malacca, Taiwan Strait), 5 shipping indices (Baltic Dry, SCFI Shanghai, Harpex, VLCC Tanker, Suezmax), 5 minerals (Lithium, Cobalt, Rare Earths, Copper, Nickel). Use realistic current values.` }],
+        }),
+        signal: AbortSignal.timeout(30000),
+      });
+      if (!res.ok) return;
+      const json = await res.json();
+      let text = json.choices?.[0]?.message?.content?.trim() ?? '';
+      text = text.replace(/```(?:json)?\s*/g, '').replace(/```\s*/g, '').trim();
+      const parsed = JSON.parse(text);
+      if (parsed.chokepoints?.length > 0) {
+        this.updateChokepointStatus({ chokepoints: parsed.chokepoints, fetchedAt: new Date().toISOString(), upstreamUnavailable: false } as any);
+      }
+      if (parsed.indices?.length > 0) {
+        this.updateShippingRates({ indices: parsed.indices, fetchedAt: new Date().toISOString(), upstreamUnavailable: false } as any);
+      }
+      if (parsed.minerals?.length > 0) {
+        this.updateCriticalMinerals({ minerals: parsed.minerals, fetchedAt: new Date().toISOString(), upstreamUnavailable: false } as any);
+      }
+      console.log('[SupplyChain] AI fallback loaded');
+    } catch (e) { console.warn('[SupplyChain] AI fallback failed:', e); }
   }
 
   public updateShippingRates(data: GetShippingRatesResponse): void {

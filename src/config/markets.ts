@@ -1,18 +1,18 @@
 import type { Sector, Commodity, MarketSymbol } from '@/types';
 
 export const SECTORS: Sector[] = [
-  { symbol: 'XLK', name: 'Tech' },
-  { symbol: 'XLF', name: 'Finance' },
-  { symbol: 'XLE', name: 'Energy' },
-  { symbol: 'XLV', name: 'Health' },
-  { symbol: 'XLY', name: 'Consumer' },
-  { symbol: 'XLI', name: 'Industrial' },
-  { symbol: 'XLP', name: 'Staples' },
-  { symbol: 'XLU', name: 'Utilities' },
-  { symbol: 'XLB', name: 'Materials' },
-  { symbol: 'XLRE', name: 'Real Est' },
-  { symbol: 'XLC', name: 'Comms' },
-  { symbol: 'SMH', name: 'Semis' },
+  { symbol: 'FTNMX5010', name: 'Tech' },
+  { symbol: 'FTNMX3010', name: 'Banks' },
+  { symbol: 'FTNMX6010', name: 'Energy' },
+  { symbol: 'FTNMX3510', name: 'Health' },
+  { symbol: 'FTNMX2010', name: 'Consumer' },
+  { symbol: 'FTNMX2710', name: 'Industrial' },
+  { symbol: 'FTNMX3020', name: 'Insurance' },
+  { symbol: 'FTNMX5510', name: 'Utilities' },
+  { symbol: 'FTNMX1510', name: 'Materials' },
+  { symbol: 'FTNMX3510R', name: 'Real Est' },
+  { symbol: 'FTNMX5020', name: 'Telecom' },
+  { symbol: 'FTNMX6020', name: 'Mining' },
 ];
 
 export const COMMODITIES: Commodity[] = [

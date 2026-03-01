@@ -1,6 +1,7 @@
 import type { AppContext, AppModule } from '@/app/app-context';
 import type { NewsItem, MapLayers, SocialUnrestEvent, InternetOutage } from '@/types';
 import type { Earthquake } from '@/services/earthquakes';
+import type { FredSeries } from '@/services/economic';
 import type { MarketData } from '@/types';
 import type { TimeRange } from '@/components';
 import {
@@ -41,8 +42,6 @@ import {
   calculateDeviation,
   addToSignalHistory,
   analysisWorker,
-  fetchPizzIntStatus,
-  fetchGdeltTensions,
   fetchNaturalEvents,
   fetchRecentAwards,
   fetchOilAnalytics,
@@ -65,10 +64,10 @@ import { updateAndCheck } from '@/services/temporal-baseline';
 import { fetchAllFires, flattenFires, computeRegionStats, toMapFires } from '@/services/wildfires';
 import { analyzeFlightsForSurge, surgeAlertToSignal, detectForeignMilitaryPresence, foreignPresenceToSignal, type TheaterPostureSummary } from '@/services/military-surge';
 import { fetchCachedTheaterPosture } from '@/services/cached-theater-posture';
-import { ingestProtestsForCII, ingestMilitaryForCII, ingestNewsForCII, ingestOutagesForCII, ingestConflictsForCII, ingestUcdpForCII, ingestHapiForCII, ingestDisplacementForCII, ingestClimateForCII, isInLearningMode } from '@/services/country-instability';
+import { ingestProtestsForCII, ingestMilitaryForCII, ingestNewsForCII, ingestOutagesForCII, ingestConflictsForCII, ingestUcdpForCII, ingestHapiForCII, ingestClimateForCII, isInLearningMode } from '@/services/country-instability';
 import { dataFreshness, type DataSourceId } from '@/services/data-freshness';
 import { fetchConflictEvents, fetchUcdpClassifications, fetchHapiSummary, fetchUcdpEvents, deduplicateAgainstAcled } from '@/services/conflict';
-import { fetchUnhcrPopulation } from '@/services/displacement';
+import { getAIFredData, getAITradePolicyData, getAISupplyChainData, isAIPanelFallbackAvailable } from '@/services/panel-ai-fallback';
 import { fetchClimateAnomalies } from '@/services/climate';
 import { enrichEventsWithExposure } from '@/services/population-exposure';
 import { debounce, getCircuitBreakerCooldownInfo } from '@/utils';
@@ -76,7 +75,7 @@ import { isFeatureAvailable } from '@/services/runtime-config';
 import { getAiFlowSettings } from '@/services/ai-flow-settings';
 import { t } from '@/services/i18n';
 import { maybeShowDownloadBanner } from '@/components/DownloadBanner';
-import { mountCommunityWidget } from '@/components/CommunityWidget';
+// import { mountCommunityWidget } from '@/components/CommunityWidget';
 import { ResearchServiceClient } from '@/generated/client/worldmonitor/research/v1/service_client';
 import {
   MarketPanel,
@@ -84,13 +83,10 @@ import {
   CommoditiesPanel,
   CryptoPanel,
   PredictionPanel,
-  InsightsPanel,
   CIIPanel,
   StrategicPosturePanel,
   EconomicPanel,
   TechReadinessPanel,
-  UcdpEventsPanel,
-  DisplacementPanel,
   ClimateAnomalyPanel,
   PopulationExposurePanel,
   TradePolicyPanel,
@@ -166,7 +162,6 @@ export class DataLoaderManager implements AppModule {
     if (SITE_VARIANT !== 'happy') {
       tasks.push({ name: 'markets', task: runGuarded('markets', () => this.loadMarkets()) });
       tasks.push({ name: 'predictions', task: runGuarded('predictions', () => this.loadPredictions()) });
-      tasks.push({ name: 'pizzint', task: runGuarded('pizzint', () => this.loadPizzInt()) });
       tasks.push({ name: 'fred', task: runGuarded('fred', () => this.loadFredData()) });
       tasks.push({ name: 'oil', task: runGuarded('oil', () => this.loadOilAnalytics()) });
       tasks.push({ name: 'spending', task: runGuarded('spending', () => this.loadGovernmentSpending()) });
@@ -425,7 +420,6 @@ export class DataLoaderManager implements AppModule {
           this.loadKindnessData();
           break;
         case 'ucdpEvents':
-        case 'displacement':
         case 'climate':
           await this.loadIntelligenceSignals();
           break;
@@ -723,7 +717,7 @@ export class DataLoaderManager implements AppModule {
     this.ctx.allNews = collectedNews;
     this.ctx.initialLoadComplete = true;
     maybeShowDownloadBanner();
-    mountCommunityWidget();
+    // mountCommunityWidget(); // Removed — not needed
     updateAndCheck([
       { type: 'news', region: 'global', count: collectedNews.length },
     ]).then(anomalies => {
@@ -738,8 +732,7 @@ export class DataLoaderManager implements AppModule {
         : await analysisWorker.clusterNews(this.ctx.allNews);
 
       if (this.ctx.latestClusters.length > 0) {
-        const insightsPanel = this.ctx.panels['insights'] as InsightsPanel | undefined;
-        insightsPanel?.updateInsights(this.ctx.latestClusters);
+        // AI Market Share panel is self-contained (no updateInsights needed)
       }
 
       const geoLocated = this.ctx.latestClusters
@@ -854,6 +847,32 @@ export class DataLoaderManager implements AppModule {
             this.ctx.panels['markets']?.showConfigError(finnhubConfigMsg);
           }
           this.ctx.panels['heatmap']?.showConfigError(finnhubConfigMsg);
+        }
+      } else if (stocksResult.data.length === 0 && isAIMarketAvailable()) {
+        // API endpoint unavailable (e.g. local server has no proto handler) — use AI fallback
+        console.log('[DataLoader] Market API returned empty — using AI fallback');
+        try {
+          const [aiStocks, aiCommodities, aiSectors] = await Promise.all([
+            getAIStocks(),
+            getAICommodities(),
+            getAISectors(),
+          ]);
+          if (aiStocks.length > 0) {
+            const aiMarketData = aiStocks.map(s => ({ ...s, sparkline: undefined }));
+            this.ctx.latestMarkets = aiMarketData;
+            (this.ctx.panels['markets'] as MarketPanel).renderMarkets(aiMarketData);
+          }
+          if (aiCommodities.length > 0) {
+            (this.ctx.panels['commodities'] as CommoditiesPanel).renderCommodities(
+              aiCommodities.map(c => ({ display: c.display, price: c.price, change: c.change, sparkline: undefined }))
+            );
+            commoditiesLoaded = true;
+          }
+          if (aiSectors.length > 0) {
+            (this.ctx.panels['heatmap'] as HeatmapPanel).renderHeatmap(aiSectors);
+          }
+        } catch (e) {
+          console.warn('[DataLoader] AI market fallback failed:', e);
         }
       } else {
         this.ctx.statusPanel?.updateApi('Finnhub', { status: 'ok' });
@@ -1251,7 +1270,6 @@ export class DataLoaderManager implements AppModule {
           latitude: e.lat, longitude: e.lon, event_date: e.time.toISOString(), fatalities: e.fatalities ?? 0,
         }));
         const events = deduplicateAgainstAcled(result.data, acledEvents);
-        (this.ctx.panels['ucdp-events'] as UcdpEventsPanel)?.setEvents(events);
         if (this.ctx.mapLayers.ucdpEvents) {
           this.ctx.map?.setUcdpEvents(events);
         }
@@ -1262,25 +1280,7 @@ export class DataLoaderManager implements AppModule {
       }
     })());
 
-    tasks.push((async () => {
-      try {
-        const unhcrResult = await fetchUnhcrPopulation();
-        if (!unhcrResult.ok) {
-          dataFreshness.recordError('unhcr', 'UNHCR displacement unavailable (retaining prior displacement state)');
-          return;
-        }
-        const data = unhcrResult.data;
-        (this.ctx.panels['displacement'] as DisplacementPanel)?.setData(data);
-        ingestDisplacementForCII(data.countries);
-        if (this.ctx.mapLayers.displacement && data.topFlows) {
-          this.ctx.map?.setDisplacementFlows(data.topFlows);
-        }
-        if (data.countries.length > 0) dataFreshness.recordUpdate('unhcr', data.countries.length);
-      } catch (error) {
-        console.error('[Intelligence] UNHCR displacement fetch failed:', error);
-        dataFreshness.recordError('unhcr', String(error));
-      }
-    })());
+    // UNHCR Displacement panel removed per user request
 
     tasks.push((async () => {
       try {
@@ -1305,13 +1305,9 @@ export class DataLoaderManager implements AppModule {
     await Promise.allSettled(tasks);
 
     try {
-      const ucdpEvts = (this.ctx.panels['ucdp-events'] as UcdpEventsPanel)?.getEvents?.() || [];
       const events = [
         ...(this.ctx.intelligenceCache.protests?.events || []).slice(0, 10).map(e => ({
           id: e.id, lat: e.lat, lon: e.lon, type: 'conflict' as const, name: e.title || 'Protest',
-        })),
-        ...ucdpEvts.slice(0, 10).map(e => ({
-          id: e.id, lat: e.latitude, lon: e.longitude, type: e.type_of_violence as string, name: `${e.side_a} vs ${e.side_b}`,
         })),
       ];
       if (events.length > 0) {
@@ -1774,8 +1770,6 @@ export class DataLoaderManager implements AppModule {
       this.ctx.map?.setMilitaryVessels(vessels, vesselClusters);
       this.ctx.map?.updateMilitaryForEscalation(flights, vessels);
       this.loadCachedPosturesForBanner();
-      const insightsPanel = this.ctx.panels['insights'] as InsightsPanel | undefined;
-      insightsPanel?.setMilitaryFlights(flights);
       const hasData = flights.length > 0 || vessels.length > 0;
       this.ctx.map?.setLayerReady('military', hasData);
       const militaryCount = flights.length + vessels.length;
@@ -1835,9 +1829,6 @@ export class DataLoaderManager implements AppModule {
       }
 
       this.loadCachedPosturesForBanner();
-      const insightsPanel = this.ctx.panels['insights'] as InsightsPanel | undefined;
-      insightsPanel?.setMilitaryFlights(flightData.flights);
-
       const hasData = flightData.flights.length > 0 || vesselData.vessels.length > 0;
       this.ctx.map?.setLayerReady('military', hasData);
       const militaryCount = flightData.flights.length + vesselData.vessels.length;
@@ -1899,6 +1890,18 @@ export class DataLoaderManager implements AppModule {
         await new Promise(r => setTimeout(r, 20_000));
         const retryData = await fetchFredData();
         if (retryData.length === 0) {
+          // AI fallback when FRED returns empty even after retry
+          if (isAIPanelFallbackAvailable()) {
+            console.log('[DataLoader] FRED retry empty — trying AI fallback');
+            const aiFred = await getAIFredData();
+            if (aiFred && aiFred.length > 0) {
+              economicPanel?.setErrorState(false);
+              economicPanel?.update(aiFred as unknown as FredSeries[]);
+              this.ctx.statusPanel?.updateApi('FRED', { status: 'ok' });
+              dataFreshness.recordUpdate('economic', aiFred.length);
+              return;
+            }
+          }
           economicPanel?.setErrorState(true, 'FRED data temporarily unavailable — will retry');
           this.ctx.statusPanel?.updateApi('FRED', { status: 'error' });
           return;
@@ -1930,6 +1933,20 @@ export class DataLoaderManager implements AppModule {
         } catch { /* fall through */ }
       }
       this.ctx.statusPanel?.updateApi('FRED', { status: 'error' });
+      // AI fallback for FRED
+      if (isAIPanelFallbackAvailable()) {
+        console.log('[DataLoader] FRED API failed — trying AI fallback');
+        try {
+          const aiFred = await getAIFredData();
+          if (aiFred && aiFred.length > 0) {
+            economicPanel?.setErrorState(false);
+            economicPanel?.update(aiFred as FredSeries[]);
+            this.ctx.statusPanel?.updateApi('FRED', { status: 'ok' });
+            dataFreshness.recordUpdate('economic', aiFred.length);
+            return;
+          }
+        } catch { /* AI fallback failed too */ }
+      }
       economicPanel?.setErrorState(true, 'FRED data temporarily unavailable — will retry');
       economicPanel?.setLoading(false);
     }
@@ -1994,6 +2011,7 @@ export class DataLoaderManager implements AppModule {
     const tradePanel = this.ctx.panels['trade-policy'] as TradePolicyPanel | undefined;
     if (!tradePanel) return;
 
+    let totalItems = 0;
     try {
       const [restrictions, tariffs, flows, barriers] = await Promise.all([
         fetchTradeRestrictions([], 50),
@@ -2007,13 +2025,14 @@ export class DataLoaderManager implements AppModule {
       tradePanel.updateFlows(flows);
       tradePanel.updateBarriers(barriers);
 
-      const totalItems = restrictions.restrictions.length + tariffs.datapoints.length + flows.flows.length + barriers.barriers.length;
+      totalItems = restrictions.restrictions.length + tariffs.datapoints.length + flows.flows.length + barriers.barriers.length;
       const anyUnavailable = restrictions.upstreamUnavailable || tariffs.upstreamUnavailable || flows.upstreamUnavailable || barriers.upstreamUnavailable;
 
       this.ctx.statusPanel?.updateApi('WTO', { status: anyUnavailable ? 'warning' : totalItems > 0 ? 'ok' : 'error' });
 
       if (totalItems > 0) {
         dataFreshness.recordUpdate('wto_trade', totalItems);
+        return;
       } else if (anyUnavailable) {
         dataFreshness.recordError('wto_trade', 'WTO upstream temporarily unavailable');
       }
@@ -2022,12 +2041,83 @@ export class DataLoaderManager implements AppModule {
       this.ctx.statusPanel?.updateApi('WTO', { status: 'error' });
       dataFreshness.recordError('wto_trade', String(e));
     }
+
+    // AI fallback when trade policy data is empty or failed
+    if (totalItems === 0 && isAIPanelFallbackAvailable()) {
+      console.log('[DataLoader] Trade policy empty — trying AI fallback');
+      try {
+        const aiTrade = await getAITradePolicyData();
+        if (aiTrade) {
+          if (aiTrade.restrictions.length > 0) {
+            tradePanel.updateRestrictions({
+              restrictions: aiTrade.restrictions.map(r => ({
+                reportingCountry: r.country,
+                measureType: r.measure,
+                status: r.severity,
+                productSector: r.affectedSectors.join(', '),
+                description: '',
+                affectedCountry: '',
+                notifiedAt: r.imposedDate,
+                sourceUrl: '',
+              })),
+              fetchedAt: new Date().toISOString(),
+              upstreamUnavailable: false,
+            } as any);
+          }
+          if (aiTrade.tariffs.length > 0) {
+            tradePanel.updateTariffs({
+              datapoints: aiTrade.tariffs.map(t => ({
+                year: t.year,
+                tariffRate: t.avgTariff,
+                productSector: t.sector,
+              })),
+              fetchedAt: new Date().toISOString(),
+              upstreamUnavailable: false,
+            } as any);
+          }
+          if (aiTrade.flows.length > 0) {
+            tradePanel.updateFlows({
+              flows: aiTrade.flows.map(f => ({
+                reportingCountry: f.reporter,
+                partnerCountry: f.partner,
+                exports: f.exports,
+                imports: f.imports,
+                balance: f.balance,
+                year: f.year,
+              })),
+              fetchedAt: new Date().toISOString(),
+              upstreamUnavailable: false,
+            } as any);
+          }
+          if (aiTrade.barriers.length > 0) {
+            tradePanel.updateBarriers({
+              barriers: aiTrade.barriers.map(b => ({
+                reportingCountry: b.country,
+                measureType: b.type,
+                description: b.description,
+                affectedProducts: b.affectedProducts,
+                notifiedAt: b.notificationDate,
+                sourceUrl: '',
+              })),
+              fetchedAt: new Date().toISOString(),
+              upstreamUnavailable: false,
+            } as any);
+          }
+          this.ctx.statusPanel?.updateApi('WTO', { status: 'ok' });
+          const total = aiTrade.restrictions.length + aiTrade.tariffs.length + aiTrade.flows.length + aiTrade.barriers.length;
+          dataFreshness.recordUpdate('wto_trade', total);
+        }
+      } catch (e2) {
+        console.warn('[DataLoader] Trade AI fallback failed:', e2);
+      }
+    }
   }
 
   async loadSupplyChain(): Promise<void> {
     const scPanel = this.ctx.panels['supply-chain'] as SupplyChainPanel | undefined;
     if (!scPanel) return;
 
+    let totalItems = 0;
     try {
       const [shipping, chokepoints, minerals] = await Promise.allSettled([
         fetchShippingRates(),
@@ -2043,13 +2133,14 @@ export class DataLoaderManager implements AppModule {
       if (chokepointData) scPanel.updateChokepointStatus(chokepointData);
       if (mineralsData) scPanel.updateCriticalMinerals(mineralsData);
 
-      const totalItems = (shippingData?.indices.length || 0) + (chokepointData?.chokepoints.length || 0) + (mineralsData?.minerals.length || 0);
+      totalItems = (shippingData?.indices.length || 0) + (chokepointData?.chokepoints.length || 0) + (mineralsData?.minerals.length || 0);
       const anyUnavailable = shippingData?.upstreamUnavailable || chokepointData?.upstreamUnavailable || mineralsData?.upstreamUnavailable;
 
       this.ctx.statusPanel?.updateApi('SupplyChain', { status: anyUnavailable ? 'warning' : totalItems > 0 ? 'ok' : 'error' });
 
       if (totalItems > 0) {
         dataFreshness.recordUpdate('supply_chain', totalItems);
+        return;
       } else if (anyUnavailable) {
         dataFreshness.recordError('supply_chain', 'Supply chain upstream temporarily unavailable');
       }
@@ -2057,6 +2148,65 @@ export class DataLoaderManager implements AppModule {
       console.error('[App] Supply chain failed:', e);
       this.ctx.statusPanel?.updateApi('SupplyChain', { status: 'error' });
       dataFreshness.recordError('supply_chain', String(e));
+    }
+
+    // AI fallback when supply chain data is empty or failed
+    if (totalItems === 0 && isAIPanelFallbackAvailable()) {
+      console.log('[DataLoader] Supply chain empty — trying AI fallback');
+      try {
+        const aiSC = await getAISupplyChainData();
+        if (aiSC) {
+          if (aiSC.chokepoints.length > 0) {
+            scPanel.updateChokepointStatus({
+              chokepoints: aiSC.chokepoints.map(cp => ({
+                name: cp.name,
+                status: cp.disruption >= 50 ? 'red' : cp.disruption >= 20 ? 'yellow' : 'green',
+                disruptionScore: cp.disruption,
+                activeWarnings: cp.disruption >= 50 ? 3 : cp.disruption >= 20 ? 1 : 0,
+                description: `${cp.region} — ${cp.vesselCount} vessels, avg delay ${cp.avgDelay}h`,
+                affectedRoutes: [cp.region],
+              })),
+              fetchedAt: new Date().toISOString(),
+              upstreamUnavailable: false,
+            } as any);
+          }
+          if (aiSC.shipping.length > 0) {
+            scPanel.updateShippingRates({
+              indices: aiSC.shipping.map(s => ({
+                name: s.name,
+                currentValue: s.value,
+                changePct: s.change,
+                unit: s.unit,
+                spikeAlert: s.spikeAlert,
+                history: [],
+              })),
+              fetchedAt: new Date().toISOString(),
+              upstreamUnavailable: false,
+            } as any);
+          }
+          if (aiSC.minerals.length > 0) {
+            scPanel.updateCriticalMinerals({
+              minerals: aiSC.minerals.map(m => ({
+                mineral: m.mineral,
+                hhi: m.hhi,
+                riskRating: m.riskRating,
+                topProducers: m.topProducers.map(p => ({
+                  country: p.country,
+                  sharePct: p.share,
+                })),
+                priceChangePct: m.priceChange,
+              })),
+              fetchedAt: new Date().toISOString(),
+              upstreamUnavailable: false,
+            } as any);
+          }
+          this.ctx.statusPanel?.updateApi('SupplyChain', { status: 'ok' });
+          const total = aiSC.shipping.length + aiSC.chokepoints.length + aiSC.minerals.length;
+          dataFreshness.recordUpdate('supply_chain', total);
+        }
+      } catch (e2) {
+        console.warn('[DataLoader] Supply chain AI fallback failed:', e2);
+      }
     }
   }
 
@@ -2142,33 +2292,6 @@ export class DataLoaderManager implements AppModule {
       (this.ctx.panels['satellite-fires'] as SatelliteFiresPanel)?.update([], 0);
       this.ctx.statusPanel?.updateApi('FIRMS', { status: 'error' });
       dataFreshness.recordError('firms', String(e));
-    }
-  }
-
-  async loadPizzInt(): Promise<void> {
-    try {
-      const [status, tensions] = await Promise.all([
-        fetchPizzIntStatus(),
-        fetchGdeltTensions()
-      ]);
-
-      if (status.locationsMonitored === 0) {
-        this.ctx.pizzintIndicator?.hide();
-        this.ctx.statusPanel?.updateApi('PizzINT', { status: 'error' });
-        dataFreshness.recordError('pizzint', 'No monitored locations returned');
-        return;
-      }
-
-      this.ctx.pizzintIndicator?.show();
-      this.ctx.pizzintIndicator?.updateStatus(status);
-      this.ctx.pizzintIndicator?.updateTensions(tensions);
-      this.ctx.statusPanel?.updateApi('PizzINT', { status: 'ok' });
-      dataFreshness.recordUpdate('pizzint', Math.max(status.locationsMonitored, tensions.length));
-    } catch (error) {
-      console.error('[App] PizzINT load failed:', error);
-      this.ctx.pizzintIndicator?.hide();
-      this.ctx.statusPanel?.updateApi('PizzINT', { status: 'error' });
-      dataFreshness.recordError('pizzint', String(error));
     }
   }
 

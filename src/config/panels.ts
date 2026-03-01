@@ -6,15 +6,15 @@ import { SITE_VARIANT } from './variant';
 // FULL VARIANT (Geopolitical)
 // ============================================
 // Panel order matters! First panels appear at top of grid.
-// Desired order: live-news, AI Insights, AI Strategic Posture, cii, strategic-risk, then rest
+// Desired order: live-news, AI Market Share, AI Strategic Posture, cii, strategic-risk, then rest
 const FULL_PANELS: Record<string, PanelConfig> = {
   map: { name: 'Global Map', enabled: true, priority: 1 },
   'live-news': { name: 'Live News', enabled: true, priority: 1 },
   'live-webcams': { name: 'Live Webcams', enabled: true, priority: 1 },
-  insights: { name: 'AI Insights', enabled: true, priority: 1 },
-  'strategic-posture': { name: 'AI Strategic Posture', enabled: true, priority: 1 },
+  insights: { name: 'AI Market Share', enabled: true, priority: 1 },
+  'strategic-posture': { name: 'AI Strategic Position', enabled: true, priority: 1 },
   cii: { name: 'Country Instability', enabled: true, priority: 1 },
-  'strategic-risk': { name: 'Strategic Risk Overview', enabled: true, priority: 1 },
+  'global-debt': { name: 'Global Debt', enabled: true, priority: 1 },
   intel: { name: 'Intel Feed', enabled: true, priority: 1 },
   'gdelt-intel': { name: 'Live Intelligence', enabled: true, priority: 1 },
   cascade: { name: 'Infrastructure Cascade', enabled: true, priority: 1 },
@@ -29,6 +29,8 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   gov: { name: 'Government', enabled: true, priority: 1 },
   thinktanks: { name: 'Think Tanks', enabled: true, priority: 1 },
   polymarket: { name: 'Predictions', enabled: true, priority: 1 },
+  'energy-prices': { name: 'Global Energy Prices', enabled: true, priority: 1 },
+  'gold-price': { name: 'Gold Price', enabled: true, priority: 1 },
   commodities: { name: 'Commodities', enabled: true, priority: 1 },
   markets: { name: 'Markets', enabled: true, priority: 1 },
   economic: { name: 'Economic Indicators', enabled: true, priority: 1 },
@@ -42,13 +44,15 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   layoffs: { name: 'Layoffs Tracker', enabled: true, priority: 2 },
   'satellite-fires': { name: 'Fires', enabled: true, priority: 2 },
   'macro-signals': { name: 'Market Radar', enabled: true, priority: 2 },
-  'etf-flows': { name: 'BTC ETF Tracker', enabled: true, priority: 2 },
   stablecoins: { name: 'Stablecoins', enabled: true, priority: 2 },
-  'ucdp-events': { name: 'UCDP Conflict Events', enabled: true, priority: 2 },
   giving: { name: 'Global Giving', enabled: false, priority: 2 },
   displacement: { name: 'UNHCR Displacement', enabled: true, priority: 2 },
   climate: { name: 'Climate Anomalies', enabled: true, priority: 2 },
   'population-exposure': { name: 'Population Exposure', enabled: true, priority: 2 },
+  'global-gdp': { name: 'Global GDP', enabled: true, priority: 1 },
+  'navada-portfolio': { name: 'NAVADA Portfolio', enabled: true, priority: 1 },
+  'navada-positions': { name: 'NAVADA Positions', enabled: true, priority: 1 },
+  'navada-signals': { name: 'NAVADA Signals', enabled: true, priority: 1 },
 };
 
 const FULL_MAP_LAYERS: MapLayers = {
@@ -158,7 +162,7 @@ const TECH_PANELS: Record<string, PanelConfig> = {
   map: { name: 'Global Tech Map', enabled: true, priority: 1 },
   'live-news': { name: 'Tech Headlines', enabled: true, priority: 1 },
   'live-webcams': { name: 'Live Webcams', enabled: true, priority: 2 },
-  insights: { name: 'AI Insights', enabled: true, priority: 1 },
+  insights: { name: 'AI Market Share', enabled: true, priority: 1 },
   ai: { name: 'AI/ML News', enabled: true, priority: 1 },
   tech: { name: 'Technology', enabled: true, priority: 1 },
   startups: { name: 'Startups & VC', enabled: true, priority: 1 },
@@ -297,7 +301,7 @@ const FINANCE_PANELS: Record<string, PanelConfig> = {
   map: { name: 'Global Markets Map', enabled: true, priority: 1 },
   'live-news': { name: 'Market Headlines', enabled: true, priority: 1 },
   'live-webcams': { name: 'Live Webcams', enabled: true, priority: 2 },
-  insights: { name: 'AI Market Insights', enabled: true, priority: 1 },
+  insights: { name: 'AI Market Share', enabled: true, priority: 1 },
   markets: { name: 'Live Markets', enabled: true, priority: 1 },
   'markets-news': { name: 'Markets News', enabled: true, priority: 2 },
   forex: { name: 'Forex & Currencies', enabled: true, priority: 1 },
@@ -324,6 +328,9 @@ const FINANCE_PANELS: Record<string, PanelConfig> = {
   'gcc-investments': { name: 'GCC Investments', enabled: true, priority: 2 },
   gccNews: { name: 'GCC Business News', enabled: true, priority: 2 },
   polymarket: { name: 'Predictions', enabled: true, priority: 2 },
+  'navada-portfolio': { name: 'NAVADA Portfolio', enabled: true, priority: 1 },
+  'navada-positions': { name: 'NAVADA Positions', enabled: true, priority: 1 },
+  'navada-signals': { name: 'NAVADA Signals', enabled: true, priority: 1 },
 };
 
 const FINANCE_MAP_LAYERS: MapLayers = {
@@ -580,7 +587,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   // Full (geopolitical) variant
   intelligence: {
     labelKey: 'header.panelCatIntelligence',
-    panelKeys: ['cii', 'strategic-risk', 'intel', 'gdelt-intel', 'cascade'],
+    panelKeys: ['cii', 'global-debt', 'intel', 'gdelt-intel', 'cascade'],
     variants: ['full'],
   },
   regionalNews: {
@@ -590,7 +597,7 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   marketsFinance: {
     labelKey: 'header.panelCatMarketsFinance',
-    panelKeys: ['commodities', 'markets', 'economic', 'trade-policy', 'supply-chain', 'finance', 'polymarket', 'macro-signals', 'etf-flows', 'stablecoins', 'crypto', 'heatmap'],
+    panelKeys: ['commodities', 'markets', 'economic', 'global-gdp', 'trade-policy', 'supply-chain', 'finance', 'polymarket', 'macro-signals', 'etf-flows', 'stablecoins', 'crypto', 'heatmap'],
     variants: ['full'],
   },
   topical: {
@@ -661,6 +668,13 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
     labelKey: 'header.panelCatGulfMena',
     panelKeys: ['gcc-investments', 'gccNews'],
     variants: ['finance'],
+  },
+
+  // NAVADA Trading (full + finance variants)
+  navadaTrading: {
+    labelKey: 'header.panelCatNavadaTrading',
+    panelKeys: ['navada-portfolio', 'navada-positions', 'navada-signals'],
+    variants: ['full', 'finance'],
   },
 };
 
