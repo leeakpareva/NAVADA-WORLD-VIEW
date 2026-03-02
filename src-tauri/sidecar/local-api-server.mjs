@@ -185,6 +185,15 @@ async function isSafeUrl(urlString) {
     } catch { /* no AAAA records */ }
 
     if (addresses.length === 0) {
+      // Fallback to OS dns.lookup() when c-ares resolve4/resolve6 both fail (common on Windows)
+      // dns from 'node:dns/promises' includes a promisified lookup that uses the OS resolver
+      try {
+        const result = await dns.lookup(hostname);
+        if (result?.address) addresses.push(result.address);
+      } catch { /* lookup also failed */ }
+    }
+
+    if (addresses.length === 0) {
       return { safe: false, reason: 'Could not resolve hostname' };
     }
 
@@ -1089,6 +1098,254 @@ async function dispatch(requestUrl, req, routes, context) {
       return json(result, result.valid ? 200 : 422);
     } catch {
       return json({ error: 'expected { key, value }' }, 400);
+    }
+  }
+
+  // ── GDELT DOC API handler ─────────────────────────────────────────────
+  // Handles /api/intelligence/v1/search-gdelt-documents locally by querying
+  // the public GDELT DOC API directly instead of relying on cloud fallback.
+  if (requestUrl.pathname === '/api/intelligence/v1/search-gdelt-documents' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const { query, maxRecords, timespan, toneFilter, sort } = JSON.parse(body.toString());
+      if (!query) return json({ articles: [], query: '', error: 'Missing query parameter' });
+
+      const params = new URLSearchParams({
+        query,
+        maxrecords: String(maxRecords || 10),
+        timespan: timespan || '24h',
+        mode: 'artlist',
+        format: 'json',
+      });
+      if (toneFilter) params.set('tonefilter', toneFilter);
+      if (sort) params.set('sort', sort);
+
+      const gdeltUrl = `https://api.gdeltproject.org/api/v2/doc/doc?${params}`;
+      const gdeltRes = await fetchWithTimeout(gdeltUrl, {}, 15000);
+      const text = typeof gdeltRes.text === 'function' ? await gdeltRes.text() : await new Promise((resolve, reject) => {
+        const chunks = []; gdeltRes.on('data', c => chunks.push(c)); gdeltRes.on('end', () => resolve(Buffer.concat(chunks).toString())); gdeltRes.on('error', reject);
+      });
+
+      let parsed;
+      try { parsed = JSON.parse(text); } catch { return json({ articles: [], query, error: 'GDELT returned non-JSON response' }); }
+
+      const articles = (parsed.articles || []).map(a => ({
+        title: a.title || '',
+        url: a.url || '',
+        source: a.domain || '',
+        date: a.seendate || '',
+        image: a.socialimage || '',
+        language: a.language || '',
+        tone: typeof a.tone === 'number' ? a.tone : 0,
+      }));
+
+      return json({ articles, query, error: '' });
+    } catch (err) {
+      context.logger.error('[local-api] GDELT handler error:', err.message);
+      return json({ articles: [], query: '', error: `GDELT fetch failed: ${err.message}` });
+    }
+  }
+
+  // ── World Bank Indicators handler ───────────────────────────────────
+  if (requestUrl.pathname === '/api/economic/v1/list-world-bank-indicators' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const { indicatorCode, countryCode, year } = JSON.parse(body.toString());
+      if (!indicatorCode) return json({ data: [], pagination: null });
+
+      const TECH_COUNTRIES = [
+        'USA','CHN','JPN','DEU','KOR','GBR','IND','ISR','SGP','TWN',
+        'FRA','CAN','SWE','NLD','CHE','FIN','IRL','AUS','BRA','IDN',
+        'ARE','SAU','QAT','BHR','EGY','TUR','MYS','THA','VNM','PHL',
+        'ESP','ITA','POL','CZE','DNK','NOR','AUT','BEL','PRT','EST',
+        'MEX','ARG','CHL','COL','ZAF','NGA','KEN',
+      ];
+      const countries = countryCode || TECH_COUNTRIES.join(';');
+      const currentYear = new Date().getFullYear();
+      const years = year > 0 ? year : 5;
+      const startYear = currentYear - years;
+      const wbUrl = `https://api.worldbank.org/v2/country/${countries}/indicator/${indicatorCode}?format=json&date=${startYear}:${currentYear}&per_page=1000`;
+
+      const wbRes = await fetchWithTimeout(wbUrl, { headers: { 'Accept': 'application/json' } }, 15000);
+      const text = typeof wbRes.text === 'function' ? await wbRes.text() : await new Promise((resolve, reject) => {
+        const chunks = []; wbRes.on('data', c => chunks.push(c)); wbRes.on('end', () => resolve(Buffer.concat(chunks).toString())); wbRes.on('error', reject);
+      });
+
+      let parsed;
+      try { parsed = JSON.parse(text); } catch { return json({ data: [], pagination: null }); }
+      if (!Array.isArray(parsed) || parsed.length < 2 || !parsed[1]) return json({ data: [], pagination: null });
+
+      const records = parsed[1];
+      const indicatorName = records[0]?.indicator?.value || indicatorCode;
+      const data = records
+        .filter(r => r.countryiso3code && r.value !== null)
+        .map(r => ({
+          countryCode: r.countryiso3code || r.country?.id || '',
+          countryName: r.country?.value || '',
+          indicatorCode,
+          indicatorName,
+          year: parseInt(r.date, 10) || 0,
+          value: r.value,
+        }));
+
+      return json({ data, pagination: null });
+    } catch (err) {
+      context.logger.error('[local-api] World Bank handler error:', err.message);
+      return json({ data: [], pagination: null });
+    }
+  }
+
+  // ── Tech Events handler ─────────────────────────────────────────────
+  if (requestUrl.pathname === '/api/research/v1/list-tech-events' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const { type, mappable, limit, days } = JSON.parse(body.toString());
+
+      const ICS_URL = 'https://www.techmeme.com/newsy_events.ics';
+      const DEV_RSS = 'https://dev.events/rss.xml';
+      const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+
+      const [icsRes, rssRes] = await Promise.allSettled([
+        fetchWithTimeout(ICS_URL, { headers: { 'User-Agent': UA } }, 12000),
+        fetchWithTimeout(DEV_RSS, { headers: { 'User-Agent': UA } }, 12000),
+      ]);
+
+      let events = [];
+
+      // Parse ICS
+      if (icsRes.status === 'fulfilled') {
+        const icsText = typeof icsRes.value.text === 'function' ? await icsRes.value.text() : await new Promise((resolve, reject) => {
+          const chunks = []; icsRes.value.on('data', c => chunks.push(c)); icsRes.value.on('end', () => resolve(Buffer.concat(chunks).toString())); icsRes.value.on('error', reject);
+        });
+        const blocks = icsText.split('BEGIN:VEVENT').slice(1);
+        for (const block of blocks) {
+          const sm = block.match(/SUMMARY:(.+)/);
+          const lm = block.match(/LOCATION:(.+)/);
+          const ds = block.match(/DTSTART;VALUE=DATE:(\d+)/);
+          const de = block.match(/DTEND;VALUE=DATE:(\d+)/);
+          const um = block.match(/URL:(.+)/);
+          const uid = block.match(/UID:(.+)/);
+          if (sm && ds) {
+            const title = sm[1].trim();
+            const location = lm ? lm[1].trim() : '';
+            const sd = ds[1];
+            const ed = de ? de[1] : sd;
+            let evType = 'other';
+            if (title.startsWith('Earnings:')) evType = 'earnings';
+            else if (title.startsWith('IPO')) evType = 'ipo';
+            else if (location) evType = 'conference';
+            events.push({
+              id: uid ? uid[1].trim() : '',
+              title, type: evType, location,
+              startDate: `${sd.slice(0,4)}-${sd.slice(4,6)}-${sd.slice(6,8)}`,
+              endDate: `${ed.slice(0,4)}-${ed.slice(4,6)}-${ed.slice(6,8)}`,
+              url: um ? um[1].trim() : '', source: 'techmeme', description: '',
+            });
+          }
+        }
+      }
+
+      // Parse RSS
+      if (rssRes.status === 'fulfilled') {
+        const rssText = typeof rssRes.value.text === 'function' ? await rssRes.value.text() : await new Promise((resolve, reject) => {
+          const chunks = []; rssRes.value.on('data', c => chunks.push(c)); rssRes.value.on('end', () => resolve(Buffer.concat(chunks).toString())); rssRes.value.on('error', reject);
+        });
+        const items = [...rssText.matchAll(/<item>([\s\S]*?)<\/item>/g)];
+        const now = new Date(); now.setHours(0,0,0,0);
+        for (const match of items) {
+          const item = match[1];
+          const tm = item.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>|<title>(.*?)<\/title>/);
+          const lm = item.match(/<link>(.*?)<\/link>/);
+          const dm = item.match(/<description><!\[CDATA\[(.*?)\]\]><\/description>|<description>(.*?)<\/description>/s);
+          const gm = item.match(/<guid[^>]*>(.*?)<\/guid>/);
+          const title = tm ? (tm[1] ?? tm[2]) : null;
+          if (!title) continue;
+          const desc = dm ? (dm[1] ?? dm[2] ?? '') : '';
+          const dateMatch = desc.match(/on\s+(\w+\s+\d{1,2},?\s+\d{4})/i);
+          let startDate = null;
+          if (dateMatch) { const d = new Date(dateMatch[1]); if (!isNaN(d.getTime())) startDate = d.toISOString().split('T')[0]; }
+          if (!startDate || new Date(startDate) < now) continue;
+          events.push({
+            id: gm ? gm[1] : `dev-${title.slice(0,20)}`,
+            title, type: 'conference', location: '',
+            startDate, endDate: startDate,
+            url: lm ? lm[1] : '', source: 'dev.events', description: '',
+          });
+        }
+      }
+
+      // Add curated
+      const curated = [
+        { id:'gitex-global-2026', title:'GITEX Global 2026', type:'conference', location:'Dubai', startDate:'2026-12-07', endDate:'2026-12-11', url:'https://www.gitex.com', source:'curated', description:'World\'s largest tech show' },
+        { id:'token2049-dubai-2026', title:'TOKEN2049 Dubai 2026', type:'conference', location:'Dubai, UAE', startDate:'2026-04-29', endDate:'2026-04-30', url:'https://www.token2049.com', source:'curated', description:'Premier crypto event' },
+        { id:'collision-2026', title:'Collision 2026', type:'conference', location:'Toronto, Canada', startDate:'2026-06-22', endDate:'2026-06-25', url:'https://collisionconf.com', source:'curated', description:'North America\'s fastest growing tech conference' },
+        { id:'web-summit-2026', title:'Web Summit 2026', type:'conference', location:'Lisbon, Portugal', startDate:'2026-11-02', endDate:'2026-11-05', url:'https://websummit.com', source:'curated', description:'Premier tech conference' },
+      ];
+      const nowDate = new Date(); nowDate.setHours(0,0,0,0);
+      for (const c of curated) { if (new Date(c.startDate) >= nowDate) events.push(c); }
+
+      // Dedup, sort, filter
+      const seen = new Set();
+      events = events.filter(e => {
+        const key = e.title.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0,30) + e.startDate.slice(0,4);
+        if (seen.has(key)) return false;
+        seen.add(key); return true;
+      });
+      events.sort((a, b) => a.startDate.localeCompare(b.startDate));
+      if (type && type !== 'all') events = events.filter(e => e.type === type);
+      if (days > 0) { const cutoff = new Date(); cutoff.setDate(cutoff.getDate() + days); events = events.filter(e => new Date(e.startDate) <= cutoff); }
+      if (limit > 0) events = events.slice(0, limit);
+
+      const conferences = events.filter(e => e.type === 'conference');
+      return json({ success: true, count: events.length, conferenceCount: conferences.length, mappableCount: 0, lastUpdated: new Date().toISOString(), events, error: '' });
+    } catch (err) {
+      context.logger.error('[local-api] Tech Events handler error:', err.message);
+      return json({ success: false, count: 0, conferenceCount: 0, mappableCount: 0, lastUpdated: new Date().toISOString(), events: [], error: err.message });
+    }
+  }
+
+  // ── Prediction Markets handler ──────────────────────────────────────
+  if (requestUrl.pathname === '/api/prediction/v1/list-prediction-markets' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const { category, query, pagination } = JSON.parse(body.toString());
+      const useEvents = !!category;
+      const endpoint = useEvents ? 'events' : 'markets';
+      const pageSize = Math.max(1, Math.min(100, pagination?.pageSize || 50));
+      const params = new URLSearchParams({ closed: 'false', order: 'volume', ascending: 'false', limit: String(pageSize) });
+      if (useEvents) params.set('tag_slug', category);
+
+      const gammaUrl = `https://gamma-api.polymarket.com/${endpoint}?${params}`;
+      const gammaRes = await fetchWithTimeout(gammaUrl, { headers: { 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' } }, 10000);
+      const text = typeof gammaRes.text === 'function' ? await gammaRes.text() : await new Promise((resolve, reject) => {
+        const chunks = []; gammaRes.on('data', c => chunks.push(c)); gammaRes.on('end', () => resolve(Buffer.concat(chunks).toString())); gammaRes.on('error', reject);
+      });
+
+      let data;
+      try { data = JSON.parse(text); } catch { return json({ markets: [], pagination: null }); }
+      if (!Array.isArray(data)) return json({ markets: [], pagination: null });
+
+      let markets;
+      if (useEvents) {
+        markets = data.map(e => {
+          const top = e.markets?.[0];
+          let yesPrice = 0.5;
+          try { if (top?.outcomePrices) { const p = JSON.parse(top.outcomePrices); if (p.length >= 1) yesPrice = parseFloat(p[0]) || 0.5; } } catch {}
+          return { id: e.id || '', title: top?.question || e.title, yesPrice, volume: e.volume ?? 0, url: `https://polymarket.com/event/${e.slug}`, closesAt: 0, category: category || '' };
+        });
+      } else {
+        markets = data.map(m => {
+          let yesPrice = 0.5;
+          try { if (m.outcomePrices) { const p = JSON.parse(m.outcomePrices); if (p.length >= 1) yesPrice = parseFloat(p[0]) || 0.5; } } catch {}
+          return { id: m.slug || '', title: m.question, yesPrice, volume: (m.volumeNum ?? (m.volume ? parseFloat(m.volume) : 0)) || 0, url: `https://polymarket.com/market/${m.slug}`, closesAt: 0, category: '' };
+        });
+      }
+
+      if (query) { const q = query.toLowerCase(); markets = markets.filter(m => m.title.toLowerCase().includes(q)); }
+      return json({ markets, pagination: null });
+    } catch (err) {
+      context.logger.error('[local-api] Prediction Markets handler error:', err.message);
+      return json({ markets: [], pagination: null });
     }
   }
 
