@@ -39,9 +39,7 @@ import {
   GoldPricePanel,
   GlobalDebtPanel,
   GlobalGDPPanel,
-  TradingPortfolioPanel,
-  TradingPositionsPanel,
-  TradingSignalsPanel,
+  AIIPPanel,
 } from '@/components';
 import { SatelliteFiresPanel } from '@/components/SatelliteFiresPanel';
 import { PositiveNewsFeedPanel } from '@/components/PositiveNewsFeedPanel';
@@ -635,6 +633,18 @@ export class PanelLayoutManager implements AppModule {
     this.ctx.newsPanels['energy'] = energyPanel;
     this.ctx.panels['energy'] = energyPanel;
 
+    if (SITE_VARIANT === 'full') {
+      const africaAiPanel = new NewsPanel('africa-ai', 'Africa AI Startups');
+      this.attachRelatedAssetHandlers(africaAiPanel);
+      this.ctx.newsPanels['africa-ai'] = africaAiPanel;
+      this.ctx.panels['africa-ai'] = africaAiPanel;
+
+      const tradingNewsPanel = new NewsPanel('trading-news', 'Trading & Markets News');
+      this.attachRelatedAssetHandlers(tradingNewsPanel);
+      this.ctx.newsPanels['trading-news'] = tradingNewsPanel;
+      this.ctx.panels['trading-news'] = tradingNewsPanel;
+    }
+
     for (const key of Object.keys(FEEDS)) {
       if (this.ctx.newsPanels[key]) continue;
       if (!Array.isArray((FEEDS as Record<string, unknown>)[key])) continue;
@@ -706,6 +716,9 @@ export class PanelLayoutManager implements AppModule {
 
       this.ctx.panels['energy-prices'] = new EnergyPricesPanel();
       this.ctx.panels['gold-price'] = new GoldPricePanel();
+
+      // Replaces the Sector Heatmap slot in the full variant (heatmap stays for tech/finance)
+      this.ctx.panels['ai-ip'] = new AIIPPanel();
     }
 
     if (SITE_VARIANT === 'finance') {
@@ -742,13 +755,6 @@ export class PanelLayoutManager implements AppModule {
 
     const insightsPanel = new AIMarketSharePanel();
     this.ctx.panels['insights'] = insightsPanel;
-
-    // NAVADA Trading panels (full + finance variants)
-    if (SITE_VARIANT === 'full' || SITE_VARIANT === 'finance') {
-      this.ctx.panels['navada-portfolio'] = new TradingPortfolioPanel();
-      this.ctx.panels['navada-positions'] = new TradingPositionsPanel();
-      this.ctx.panels['navada-signals'] = new TradingSignalsPanel();
-    }
 
     // Global Giving panel (all variants)
     this.ctx.panels['giving'] = new GivingPanel();

@@ -31,15 +31,16 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   polymarket: { name: 'Predictions', enabled: true, priority: 1 },
   'energy-prices': { name: 'Global Energy Prices', enabled: true, priority: 1 },
   'gold-price': { name: 'Gold Price', enabled: true, priority: 1 },
-  commodities: { name: 'Commodities', enabled: true, priority: 1 },
-  markets: { name: 'Markets', enabled: true, priority: 1 },
+  commodities: { name: 'Commodities', enabled: false, priority: 1 },
+  markets: { name: 'Markets', enabled: false, priority: 1 },
+  'trading-news': { name: 'Trading & Markets News', enabled: true, priority: 1 },
   economic: { name: 'Economic Indicators', enabled: true, priority: 1 },
   'trade-policy': { name: 'Trade Policy', enabled: true, priority: 1 },
   'supply-chain': { name: 'Supply Chain', enabled: true, priority: 1 },
   finance: { name: 'Financial', enabled: true, priority: 1 },
   tech: { name: 'Technology', enabled: true, priority: 2 },
   crypto: { name: 'Crypto', enabled: true, priority: 2 },
-  heatmap: { name: 'Sector Heatmap', enabled: true, priority: 2 },
+  'ai-ip': { name: 'AI IP & Patents', enabled: true, priority: 2 },
   ai: { name: 'AI/ML', enabled: true, priority: 2 },
   layoffs: { name: 'Layoffs Tracker', enabled: true, priority: 2 },
   'satellite-fires': { name: 'Fires', enabled: true, priority: 2 },
@@ -50,9 +51,7 @@ const FULL_PANELS: Record<string, PanelConfig> = {
   climate: { name: 'Climate Anomalies', enabled: true, priority: 2 },
   'population-exposure': { name: 'Population Exposure', enabled: true, priority: 2 },
   'global-gdp': { name: 'Global GDP', enabled: true, priority: 1 },
-  'navada-portfolio': { name: 'NAVADA Portfolio', enabled: true, priority: 1 },
-  'navada-positions': { name: 'NAVADA Positions', enabled: true, priority: 1 },
-  'navada-signals': { name: 'NAVADA Signals', enabled: true, priority: 1 },
+  'africa-ai': { name: 'Africa AI Startups', enabled: true, priority: 1 },
 };
 
 const FULL_MAP_LAYERS: MapLayers = {
@@ -592,12 +591,12 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
   },
   regionalNews: {
     labelKey: 'header.panelCatRegionalNews',
-    panelKeys: ['politics', 'us', 'europe', 'middleeast', 'africa', 'latam', 'asia'],
+    panelKeys: ['politics', 'us', 'europe', 'middleeast', 'africa', 'africa-ai', 'latam', 'asia'],
     variants: ['full'],
   },
   marketsFinance: {
     labelKey: 'header.panelCatMarketsFinance',
-    panelKeys: ['commodities', 'markets', 'economic', 'global-gdp', 'trade-policy', 'supply-chain', 'finance', 'polymarket', 'macro-signals', 'etf-flows', 'stablecoins', 'crypto', 'heatmap'],
+    panelKeys: ['commodities', 'markets', 'trading-news', 'economic', 'global-gdp', 'trade-policy', 'supply-chain', 'finance', 'polymarket', 'macro-signals', 'etf-flows', 'stablecoins', 'crypto', 'ai-ip'],
     variants: ['full'],
   },
   topical: {
@@ -670,11 +669,11 @@ export const PANEL_CATEGORY_MAP: Record<string, { labelKey: string; panelKeys: s
     variants: ['finance'],
   },
 
-  // NAVADA Trading (full + finance variants)
+  // NAVADA Trading (finance variant only — removed from full, backend retired)
   navadaTrading: {
     labelKey: 'header.panelCatNavadaTrading',
     panelKeys: ['navada-portfolio', 'navada-positions', 'navada-signals'],
-    variants: ['full', 'finance'],
+    variants: ['finance'],
   },
 };
 

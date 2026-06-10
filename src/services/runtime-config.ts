@@ -29,6 +29,7 @@ export type RuntimeSecretKey =
 
 export type RuntimeFeatureId =
   | 'aiGroq'
+  | 'aiOpenAI'
   | 'aiOpenRouter'
   | 'aiXai'
   | 'economicFred'
@@ -76,6 +77,7 @@ function getSidecarSecretValidateUrl(): string {
 
 const defaultToggles: Record<RuntimeFeatureId, boolean> = {
   aiGroq: true,
+  aiOpenAI: true,
   aiOpenRouter: true,
   aiXai: true,
   economicFred: true,
@@ -116,6 +118,13 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     description: 'xAI Grok LLM provider for AI country briefs and summaries.',
     requiredSecrets: ['XAI_API_KEY'],
     fallback: 'Falls back to Groq, then OpenRouter, then local browser model.',
+  },
+  {
+    id: 'aiOpenAI',
+    name: 'OpenAI summarization',
+    description: 'OpenAI LLM provider for AI summary generation (server-side key).',
+    requiredSecrets: ['OPENAI_API_KEY'],
+    fallback: 'Falls back to OpenRouter, then local browser model.',
   },
   {
     id: 'aiOpenRouter',

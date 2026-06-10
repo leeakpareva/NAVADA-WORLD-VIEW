@@ -27,6 +27,7 @@ export * from './TechEventsPanel';
 export * from './ServiceStatusPanel';
 export * from './RuntimeConfigPanel';
 export * from './AIMarketSharePanel';
+export * from './AIIPPanel';
 export * from './TechReadinessPanel';
 export * from './SatelliteFiresPanel';
 export * from './MacroSignalsPanel';

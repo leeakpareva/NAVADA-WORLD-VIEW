@@ -1,0 +1,25 @@
+services:
+  navada-world-view:
+    build: .
+    image: navada-world-view:latest
+    container_name: navada-world-view
+    restart: always
+    ports:
+      - "4173:4173"
+    env_file:
+      - .env.local
+    environment:
+      - WM_PORT=4173
+      - LOCAL_API_PORT=46123
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - default
+      - navada-edge
+
+networks:
+  navada-edge:
+    external: true

@@ -75,7 +75,8 @@ Update ALL values to the latest available data as of ${new Date().toISOString().
     }
     const oaiKey = getSecretValue('OPENAI_API_KEY') || (import.meta as { env?: Record<string, string> }).env?.OPENAI_API_KEY;
     if (oaiKey) return this.fetchAI('https://api.openai.com/v1/chat/completions', oaiKey, 'gpt-4o-mini', prompt);
-    return null;
+    // Server-side proxy keeps the OpenAI key off the client
+    return this.fetchAI('/api/ai-chat', '', 'gpt-4o-mini', prompt);
   }
 
   private async fetchAI(url: string, key: string, model: string, prompt: string): Promise<AICompaniesData | null> {

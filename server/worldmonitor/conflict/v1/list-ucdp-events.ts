@@ -69,10 +69,14 @@ let discoveredVersionTimestamp = 0;
 const VERSION_CACHE_MS = 60 * 60 * 1000; // 1 hour
 
 async function fetchGedPage(version: string, page: number): Promise<any> {
+  // UCDP GED API requires an access token since 2026 (free, register at ucdp.uu.se)
+  const headers: Record<string, string> = { Accept: 'application/json', 'User-Agent': CHROME_UA };
+  const ucdpToken = process.env.UCDP_ACCESS_TOKEN || process.env.UC_DP_KEY;
+  if (ucdpToken) headers['x-ucdp-access-token'] = ucdpToken;
   const response = await fetch(
     `https://ucdpapi.pcr.uu.se/api/gedevents/${version}?pagesize=${UCDP_PAGE_SIZE}&page=${page}`,
     {
-      headers: { Accept: 'application/json', 'User-Agent': CHROME_UA },
+      headers,
       signal: AbortSignal.timeout(15000),
     },
   );

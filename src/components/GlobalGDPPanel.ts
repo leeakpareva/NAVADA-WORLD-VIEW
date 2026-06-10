@@ -49,16 +49,13 @@ export class GlobalGDPPanel extends Panel {
     const xaiKey = getSecretValue('XAI_API_KEY');
     const openaiKey = getSecretValue('OPENAI_API_KEY');
     const key = xaiKey || openaiKey;
-    if (!key) {
-      this.renderFallback();
-      return;
-    }
-
     const baseUrl = xaiKey ? 'https://api.x.ai/v1' : 'https://api.openai.com/v1';
     const model = xaiKey ? 'grok-3-mini-fast' : 'gpt-4o-mini';
+    // Server-side proxy keeps the OpenAI key off the client
+    const url = key ? `${baseUrl}/chat/completions` : '/api/ai-chat';
 
     try {
-      const res = await fetch(`${baseUrl}/chat/completions`, {
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
         body: JSON.stringify({

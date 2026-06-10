@@ -5,6 +5,7 @@ const ALLOWED_ORIGIN_PATTERNS = [
   /^https:\/\/worldmonitor-repo[a-z0-9-]*\.vercel\.app$/,
   /^https:\/\/(.*-)?leeakparevas-projects\.vercel\.app$/,
   /^https:\/\/(.*\.)?navada-world-view\.xyz$/,
+  /^https:\/\/(.*\.)?navada-edge-server\.uk$/,
   /^https?:\/\/localhost(:\d+)?$/,
   /^https?:\/\/127\.0\.0\.1(:\d+)?$/,
   /^https?:\/\/192\.168\.\d+\.\d+(:\d+)?$/,

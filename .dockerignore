@@ -1,0 +1,11 @@
+.git
+node_modules
+dist
+.env.local
+.env*.local
+src-tauri/target
+e2e
+tests
+docs
+tmp
+*.png

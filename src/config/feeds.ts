@@ -183,6 +183,7 @@ export const SOURCE_TIERS: Record<string, number> = {
   'LATAM Fintech': 3,
   // Africa & MENA
   'Disrupt Africa': 3,
+  'Techpoint Africa': 3,
   'Wamda (MENA)': 3,
   'Magnitt': 3,
   // Nigeria
@@ -672,6 +673,21 @@ const FULL_FEEDS: Record<string, Feed[]> = {
     { name: 'Reuters Energy', url: rss('https://news.google.com/rss/search?q=site:reuters.com+(oil+OR+gas+OR+energy+OR+OPEC)+when:3d&hl=en-US&gl=US&ceid=US:en') },
     { name: 'Mining & Resources', url: rss('https://news.google.com/rss/search?q=(lithium+OR+"rare+earth"+OR+cobalt+OR+mining)+when:3d&hl=en-US&gl=US&ceid=US:en') },
   ],
+  'africa-ai': [
+    { name: 'TechCabal (Africa)', url: rss('https://techcabal.com/feed/') },
+    { name: 'Techpoint Africa', url: rss('https://techpoint.africa/feed/') },
+    { name: 'Disrupt Africa', url: rss('https://old.disruptafrica.com/feed/') },
+    { name: 'AI Startups Africa', url: rss('https://news.google.com/rss/search?q="AI+startup"+Africa+when:7d&hl=en-US&gl=US&ceid=US:en') },
+    { name: 'Lagos AI News', url: rss('https://news.google.com/rss/search?q="artificial+intelligence"+Lagos+Nigeria+when:7d&hl=en-US&gl=US&ceid=US:en') },
+    { name: 'Africa AI Funding', url: rss('https://news.google.com/rss/search?q="AI+startup"+funding+Africa+when:7d&hl=en-US&gl=US&ceid=US:en') },
+  ],
+  'trading-news': [
+    { name: 'Robinhood News', url: rss('https://news.google.com/rss/search?q=Robinhood+when:7d&hl=en-US&gl=US&ceid=US:en') },
+    { name: 'Retail Trading', url: rss('https://news.google.com/rss/search?q="retail+trading+platform"+when:7d&hl=en-US&gl=US&ceid=US:en') },
+    { name: 'Stock Market News', url: rss('https://news.google.com/rss/search?q="stock+market"+trading+when:2d&hl=en-US&gl=US&ceid=US:en') },
+    { name: 'MarketWatch', url: rss('https://feeds.content.dowjones.io/public/rss/mw_topstories') },
+    { name: 'Investing.com', url: rss('https://www.investing.com/rss/news.rss') },
+  ],
 };
 
 // Tech/AI variant feeds
@@ -1035,10 +1051,10 @@ export const SOURCE_REGION_MAP: Record<string, { labelKey: string; feedKeys: str
   us: { labelKey: 'header.sourceRegionUS', feedKeys: ['us', 'gov'] },
   europe: { labelKey: 'header.sourceRegionEurope', feedKeys: ['europe'] },
   middleeast: { labelKey: 'header.sourceRegionMiddleEast', feedKeys: ['middleeast'] },
-  africa: { labelKey: 'header.sourceRegionAfrica', feedKeys: ['africa'] },
+  africa: { labelKey: 'header.sourceRegionAfrica', feedKeys: ['africa', 'africa-ai'] },
   latam: { labelKey: 'header.sourceRegionLatAm', feedKeys: ['latam'] },
   asia: { labelKey: 'header.sourceRegionAsiaPacific', feedKeys: ['asia'] },
-  topical: { labelKey: 'header.sourceRegionTopical', feedKeys: ['energy', 'tech', 'ai', 'finance', 'layoffs', 'thinktanks'] },
+  topical: { labelKey: 'header.sourceRegionTopical', feedKeys: ['energy', 'tech', 'ai', 'finance', 'trading-news', 'layoffs', 'thinktanks'] },
   intel: { labelKey: 'header.sourceRegionIntel', feedKeys: [] },
 
   // Tech variant regions

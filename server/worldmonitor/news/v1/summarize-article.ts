@@ -50,6 +50,7 @@ export async function summarizeArticle(
   const skipReasons: Record<string, string> = {
     ollama: 'OLLAMA_API_URL not configured',
     groq: 'GROQ_API_KEY not configured',
+    openai: 'OPENAI_API_KEY not configured',
     openrouter: 'OPENROUTER_API_KEY not configured',
   };
 

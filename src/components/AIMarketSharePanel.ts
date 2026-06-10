@@ -16,29 +16,81 @@ interface MarketSegment {
   color: string;
 }
 
-const MARKET_DATA: MarketSegment[] = [
-  { country: 'United States', share: 40, value: 80, color: '#4fc3f7' },
-  { country: 'China', share: 25, value: 50, color: '#ef5350' },
-  { country: 'United Kingdom', share: 8, value: 16, color: '#66bb6a' },
-  { country: 'Rest of World', share: 27, value: 54, color: '#78909c' },
+const SEGMENT_COLORS = ['#4fc3f7', '#ef5350', '#66bb6a', '#78909c'] as const;
+const DEFAULT_COLOR = '#78909c';
+
+// Static baseline shown until the live AI-sourced figures arrive
+const FALLBACK_MARKET_DATA: MarketSegment[] = [
+  { country: 'United States', share: 45, value: 135, color: SEGMENT_COLORS[0] },
+  { country: 'China', share: 22, value: 66, color: SEGMENT_COLORS[1] },
+  { country: 'United Kingdom', share: 6, value: 18, color: SEGMENT_COLORS[2] },
+  { country: 'Rest of World', share: 27, value: 81, color: SEGMENT_COLORS[3] },
 ];
 
-const TOTAL_MARKET = 200; // $200B+
+const FALLBACK_TOTAL = 300; // $B, 2026 estimate
+
+const REFRESH_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 export class AIMarketSharePanel extends Panel {
   private resizeObserver: ResizeObserver | null = null;
   private resizeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private tooltip: HTMLDivElement | null = null;
+  private marketData: MarketSegment[] = FALLBACK_MARKET_DATA;
+  private totalMarket = FALLBACK_TOTAL;
+  private sourceLabel = '2026 estimate • IDC / Stanford HAI';
+  private refreshTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
     super({ id: 'insights', title: 'AI Market Share' });
     this.setupResizeObserver();
     this.renderChart();
+    void this.refreshData();
+    this.refreshTimer = setInterval(() => void this.refreshData(), REFRESH_MS);
+  }
+
+  // Server-side proxy keeps the OpenAI key off the client
+  private async refreshData(): Promise<void> {
+    try {
+      const abort = new AbortController();
+      const timeout = setTimeout(() => abort.abort(), 25000);
+      const resp = await fetch('/api/ai-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          max_tokens: 300,
+          temperature: 0.1,
+          prompt: 'Return ONLY valid JSON (no markdown) with your best current estimate of the global AI market (software, services and AI infrastructure spending) split by country: {"totalBillionUSD": <number>, "segments": [{"country": "United States", "share": <percent>}, {"country": "China", "share": <percent>}, {"country": "United Kingdom", "share": <percent>}, {"country": "Rest of World", "share": <percent>}]}. Shares must sum to 100. Use the most recent credible analyst figures you know (IDC, Gartner, Stanford HAI).',
+        }),
+        signal: abort.signal,
+      });
+      clearTimeout(timeout);
+      if (!resp.ok) return;
+      const json = await resp.json();
+      let raw: string = json.choices?.[0]?.message?.content?.trim() || '';
+      if (raw.startsWith('```')) raw = raw.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '');
+      const data = JSON.parse(raw) as { totalBillionUSD: number; segments: { country: string; share: number }[] };
+      if (!Array.isArray(data.segments) || data.segments.length !== 4 || !Number.isFinite(data.totalBillionUSD)) return;
+      const sum = data.segments.reduce((s, x) => s + Number(x.share || 0), 0);
+      if (sum < 95 || sum > 105) return;
+      this.totalMarket = Math.round(data.totalBillionUSD);
+      this.marketData = data.segments.map((s, i) => ({
+        country: s.country,
+        share: Math.round(s.share),
+        value: Math.round((s.share / 100) * data.totalBillionUSD),
+        color: SEGMENT_COLORS[i % SEGMENT_COLORS.length] ?? DEFAULT_COLOR,
+      }));
+      this.sourceLabel = `AI-sourced analyst estimate • updated ${new Date().toLocaleDateString('en-GB')}`;
+      this.renderChart();
+    } catch {
+      // keep fallback data
+    }
   }
 
   public destroy(): void {
     if (this.resizeObserver) { this.resizeObserver.disconnect(); this.resizeObserver = null; }
     if (this.resizeDebounceTimer) { clearTimeout(this.resizeDebounceTimer); this.resizeDebounceTimer = null; }
+    if (this.refreshTimer) { clearInterval(this.refreshTimer); this.refreshTimer = null; }
     if (this.tooltip) { this.tooltip.remove(); this.tooltip = null; }
     super.destroy();
   }
@@ -90,7 +142,7 @@ export class AIMarketSharePanel extends Panel {
       .outerRadius(outerRadius + 6)
       .cornerRadius(3);
 
-    const arcs = pie(MARKET_DATA);
+    const arcs = pie(this.marketData);
     const tooltip = this.tooltip;
 
     // Draw segments
@@ -137,7 +189,7 @@ export class AIMarketSharePanel extends Panel {
       .attr('font-size', '18px')
       .attr('font-weight', '700')
       .attr('font-family', 'monospace')
-      .text(`$${TOTAL_MARKET}B+`);
+      .text(`$${this.totalMarket}B+`);
 
     g.append('text')
       .attr('text-anchor', 'middle')
@@ -155,7 +207,7 @@ export class AIMarketSharePanel extends Panel {
       padding: '8px 16px 12px',
     });
 
-    for (const segment of MARKET_DATA) {
+    for (const segment of this.marketData) {
       const item = document.createElement('div');
       Object.assign(item.style, {
         display: 'flex',
@@ -195,7 +247,7 @@ export class AIMarketSharePanel extends Panel {
       color: 'var(--text-dim)',
       padding: '0 0 6px',
     });
-    source.textContent = '2025 estimate \u2022 IDC / Statista / Stanford HAI';
+    source.textContent = this.sourceLabel;
     this.content.appendChild(source);
 
     // Re-add tooltip to end

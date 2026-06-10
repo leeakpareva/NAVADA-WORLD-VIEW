@@ -1,6 +1,6 @@
 /**
  * AI-powered data service for Energy Prices and Gold Price panels.
- * Uses xAI Grok (primary) → OpenAI GPT-4o-mini (fallback).
+ * Uses xAI Grok (primary) → OpenAI GPT-4o-mini (fallback) → server-side AI proxy (web).
  * Results cached for 10 minutes.
  */
 
@@ -109,12 +109,40 @@ async function fetchFromOpenai(prompt: string): Promise<string | null> {
   }
 }
 
+async function fetchFromProxy(prompt: string): Promise<string | null> {
+  // Server-side proxy keeps the OpenAI key off the client (web deployments)
+  const abort = new AbortController();
+  const timeout = setTimeout(() => abort.abort(), 30000);
+  try {
+    const resp = await fetch('/api/ai-chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        max_tokens: 2000,
+        temperature: 0.2,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+      signal: abort.signal,
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    return data.choices?.[0]?.message?.content?.trim() ?? null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function callAI(prompt: string): Promise<string | null> {
   if (isFeatureAvailable('aiXai')) {
     const result = await fetchFromXai(prompt);
     if (result) return result;
   }
-  return fetchFromOpenai(prompt);
+  const openaiResult = await fetchFromOpenai(prompt);
+  if (openaiResult) return openaiResult;
+  return fetchFromProxy(prompt);
 }
 
 function cleanJSON(raw: string): string {
